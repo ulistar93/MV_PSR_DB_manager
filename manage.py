@@ -2,6 +2,7 @@
 
 import os
 import sys
+import argparse
 #import pandas
 import pickle # vs json
 import json
@@ -15,11 +16,11 @@ class Task:
   def __init__(self, t_path):
     self.path = t_path
     self.name = t_path.name
-    self.rename, self.image_loc, self.image_files, self.anno_file = self.set_task_info(t_path)
+    self.shortname, self.image_loc, self.image_files, self.anno_file = self.set_task_info(t_path)
 
   def __repr__(self):
-    return "name: %s\nrename: %s\npath: %s\n# of images: %d\nimage_location: %s\nanno_file: %s" % (self.name,self.rename,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
-    #return "name: %s\nrename: %s\npath: %s\nimage_location: %s\n# of images: %d\nanno_file: %s" % (self.name,self.rename,str(self.path),str(self.image_loc),len(self.image_files),str(self.anno_file))
+    return "name: %s\nshortname: %s\npath: %s\n# of images: %d\nimage_location: %s\nanno_file: %s" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
+    #return "name: %s\nshortname: %s\npath: %s\nimage_location: %s\n# of images: %d\nanno_file: %s" % (self.name,self.shortname,str(self.path),str(self.image_loc),len(self.image_files),str(self.anno_file))
 
   def set_task_info(self, path):
     # read coco format
@@ -77,17 +78,46 @@ class Project:
 class TSR:
   def __init__(self, sdir):
     self.name = "TSR"
-    self.date = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    self.path = ''
+    self.date_created = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     self.plist = self.set_project_list(sdir)
-    #db = projects[]
+    _table_file = self.check_table_exist()
+    if _table_file:
+      self.read_table_pickle(_table_file)
+    else:
+      self.read_table_dir(sdir)
+    #table = projects[]
     pass
 
   def __repr__(self):
-    return "name: %s\ndate: %s\nlen(plist): %d" % (self.name,self.date,len(self.plist))
+    return "name: %s\ndate_created: %s\nlen(plist): %d" % (self.name,self.date_created,len(self.plist))
 
+  def check_table_exist(self, sdir):
+     # saved pickle check
+    pk = Path(s_dir) / 'mv_table.pkl'
+    #p = Path(s_dir) / 'mv_table.json'
+    return pk if Path.exists(pk) else ''
+
+  def read_table_picke(self, table_file):
+    # saved pickle check
+    pk = Path(table_dir) / 'table_dir.pkl'
+    #p = Path(table_dir) / 'table_dir.json'
+    #pdb.set_trace()
+    with open(pk, 'rb') as f:
+      #tsr_table = dill.load(f) # load TSR class
+      tsr_table = pickle.load(f) # load TSR class
+      #tsr_table = json.load(f) # load TSR class
+    #else:
+    #  tsr_table = TSR(table_dir)
+    #  with open(pk, 'wb') as f:
+        #dill.dump(tsr_table, f) # save TSR class
+    #    pickle.dump(tsr_table, f) # save TSR class
+        #json.dump(tsr_table, f, indent=4) # save TSR class # TODO - to be serialized
+
+    #json
 #  def __dict__(self):
 #    return { "name" : self.name,
-#            "date" : self.date,
+#            "date_created" : self.date_created,
 #            "plist" : self.plist }
 
   def set_project_list(self, sdir):
@@ -100,35 +130,28 @@ class TSR:
 
 def load_dataset(db_dir):
   # saved pickle check
-  pk = Path(db_dir) / 'db_dir.pkl'
-  #p = Path(db_dir) / 'db_dir.json'
+  pk = Path(db_dir) / 'table_dir.pkl'
+  #p = Path(db_dir) / 'table_dir.json'
   #pdb.set_trace()
   tsr_db = ""
   if Path.exists(pk):
     with open(pk, 'rb') as f:
-      #tsr_db = dill.load(f) # load TSR class
-      tsr_db = pickle.load(f) # load TSR class
-      #tsr_db = json.load(f) # load TSR class
+      #tsr_table = dill.load(f) # load TSR class
+      tsr_table = pickle.load(f) # load TSR class
+      #tsr_table = json.load(f) # load TSR class
   else:
-    tsr_db = TSR(db_dir)
+    tsr_table = TSR(table_dir)
     with open(pk, 'wb') as f:
-      #dill.dump(tsr_db, f) # save TSR class
-      pickle.dump(tsr_db, f) # save TSR class
-      #json.dump(tsr_db, f, indent=4) # save TSR class # TODO - to be serialized
-  return tsr_db
+      #dill.dump(tsr_table, f) # save TSR class
+      pickle.dump(tsr_table, f) # save TSR class
+      #json.dump(tsr_table, f, indent=4) # save TSR class # TODO - to be serialized
+  return tsr_table
 
 def override_dataset(tsr_old, tsr_new):
   # copy tsr_new only if the destination file is not exist in tsr_old
   # TODO
   pass
 
-def migrate_dataset(tsr, tdir):
-  # make new dataset at tdir include
-  # - copy images with renaming
-  # - make a new annotation file
-  # return new tsr class for sanity check
-  # TODO
-  pass
 
 def integrate_dataset(tsr, tdir, override=False):
   if override:
@@ -148,39 +171,127 @@ def save_yolo(self):
   #TODO
   pass
 
-def filter(self, keyword):
-  #TODO
-  #우선 label로만 filtering하고 attribute는 좀더 고민해보자
-  pass
 
 def exclude(self, keyword):
   pass
 
+def make_db_table(_dir):
+  _tsr = TSR(_dir)
+  return _tsr
+
+def migrate(s_dir, t_dir):
+  '''
+  migrate(s_dir, t_dir):
+    :return: new_tsr
+    migrate dataset from source dir to target dir
+    this include
+    - make a table file of s_dir in not exist
+    - copy images with renaming from s_dir to t_dir
+    - make a new annotation file for t_dir
+    - gen a new table file for t_dir
+    - return new tsr class for sanity check
+  '''
+  print("do migrate")
+  pdb.set_trace()
+  pass
+  #t_dir empty check
+
+  #s_dir table check
+    #s_dir table load
+    #s_dir table create
+      #s_dir table save
+
+  # copy and generate t_dir dataset #
+
+  #make new tsr
+    #? dir read만 하면 되는거 아닌가?
+    #save table in t_dir
+  #return new tsr
+
+def update():
+  '''
+  update(s_dir, t_dir):
+    :return: ?
+    Almost same to migrate but here open the t_dir TSR table and update new data with checking file exist
+    (if exist -> pass, if not -> add)
+    !Warning! This can make duplicate case
+  '''
+  pass
+
+def extract():
+  '''
+  filter_(condition, s_dir, t_dir):
+    :return: TSR?
+    condition = include [] or exclude []
+    read s_dir's TSR table file and
+    choose some data which fit the condition
+  '''
+  pass
+
 if __name__ == "__main__":
-  if len(sys.argv) == 3:
-    s_dir = Path(sys.argv[1].strip())
+  parser = argparse.ArgumentParser(description="TSR db manager")
+  parser.add_argument('command', choices=['migrate', 'update', 'extract'],metavar='command', type=str, help="Among \"migrate, update, extract\", choose command what you want to do")
+  parser.add_argument('-s','--sdir', metavar='PATH', type=str, help="source directory")
+  parser.add_argument('-t','--tdir', metavar='PATH', type=str, help="target directory")
+  parser.add_argument('-i','--include', metavar='LABEL', type=str, nargs='+', help="including conditions for filtering")
+  parser.add_argument('-x','--exclude', metavar='LABEL', type=str, nargs='+', help="excluding conditions for filtering")
+
+  args = parser.parse_args()
+#  print(args.accumulate(args.integers))
+
+  pdb.set_trace()
+  if args.command == "migrate":
+    # option --sdir, tdir check
+    if args.sdir == None:
+      ans = input("command \"migrate\" require --sdir. continue as default? [default=./results] [Y/n]: ")
+      if (ans == 'y') or (ans == 'Y') or (ans == ''):
+        args.sdir = "./results"
+        print("* sdir = %s *" % args.sdir)
+    if args.tdir == None:
+      ans = input("command \"migrate\" require --tdir. continue as default? [default=./] [Y/n]: ")
+      if (ans == 'y') or (ans == 'Y') or (ans == ''):
+        args.tdir = "./"
+        print("* tdir = %s *" % args.tdir)
+    migrate(args.sdir, args.tdir) # do sth
+  elif args.command == "update":
+    # option --tdir check
+    update() # do sth
+  elif args.command == "extract":
+    # option -i, -x check
+    extract() # do sth
+  else:
+    args.__repr__()
+
+  '''
+  print("#argv=%d"%len(sys.argv))
+  pdb.set_trace()
+  if len(sys.argv) > 1:
+    s_dir = path(sys.argv[1].strip())
     if not s_dir.exists():
       print("** %s is not exist **" % s_dir)
       pdb.set_trace()
       exit(0)
-    t_dir = Path(sys.argv[2].strip())
-    override = False
+    t_dir = path(sys.argv[2].strip())
+    override = false
     if t_dir.exists():
       print("** %s is already exist **" % t_dir)
-      print("** Do you want to override? [y/N]: ", end='')
+      print("** do you want to override? [y/n]: ", end='')
       ans = input()
       if ans is 'y':
-        print("** Continued (do override) **")
-        override = True
+        print("** continued (do override) **")
+        override = true
         pass
       else:
-        print("** Aborted **")
+        print("** aborted **")
         exit(0)
     tsr = load_dataset(s_dir)
     tsr_new = integrate_dataset(tsr,t_dir,override=override)
     pdb.set_trace()
   else:
-    print("[Usage] ./manage.py [s_dir] [t_dir]")
-    print("\ts_dir = dataset source directory")
-    print("\tt_dir = target directory to migrate the data")
-  pass
+    print("[Usage] ./manage.py command [args...]")
+    print()
+    print("  (commands)")
+    print(migrate.__doc__)
+    print(update.__doc__)
+    print(filter.__doc__)
+  '''
