@@ -17,6 +17,7 @@ def yntest(message, default):
   '''
     message : display text
     default : string with [y/n] choices
+    return : y -> T, n -> F
   '''
   redo_msg = ''
   while True:
@@ -149,7 +150,8 @@ def make_db_table(_dir):
   _tsr = TSR(_dir)
   return _tsr
 
-def migrate(s_dir, t_dir):
+def migrate(s_dir, t_dir, extractor=None):
+  #TODO extractor add
   '''
   migrate(s_dir, t_dir):
     :return: new_tsr
@@ -161,20 +163,24 @@ def migrate(s_dir, t_dir):
     - gen a new table file for t_dir
     - return new tsr class for sanity check
   '''
-  print("do migrate")
 
   #t_dir empty check
   tp = Path(t_dir)
   if not tp.exists():
-    print("* the t_dir %s is not exist -> make a new dir *" % t_dir)
+    print("* t_dir %s is not exist -> make a new dir *" % t_dir)
     tp.mkdir()
+    pass
   elif not tp.is_dir():
-    print("** the t_dir %s exist but not a dir -> abort **" % t_dir)
+    print("** t_dir %s exist but not a dir -> abort **" % t_dir)
     return None
   elif len(list(tp.iterdir())) > 0:
     #tdir is alread exist and not empty
-    print("* the t_dir %s exist but not emtpy -> please use \"update\" *" % t_dir)
-    return None
+    if not yntest("* t_dir %s exist but not emtpy -> please use \"update\" *\n* do you want to *DELETE* all and make a new ? *" % t_dir, "[y/N]"):
+      return None
+    else: # continue
+      shutil.rmtree(tp)
+      tp.mkdir()
+      pass
 
   #s_dir exist check
   sp = Path(s_dir)
@@ -183,6 +189,7 @@ def migrate(s_dir, t_dir):
     return None
 
   #s_dir table file check
+  print("[%s] s_dir table file check" % datetime.datetime.now().strftime('%H:%M:%S'))
   st_pkl = Path(s_dir) / "db_table.pkl"
   if st_pkl.exists():
     #s_dir table load
@@ -202,9 +209,10 @@ def migrate(s_dir, t_dir):
       #dill.dump(tsr_table, f) # save TSR class
 
   # copy and generate t_dir dataset #
-  print("do copy and gen tdir")
   # TODO(changmin) : making as a function of some class object would be botter...
   #                  candidate = TSR? or else?
+  print("[%s] do copy and gen tdir" % datetime.datetime.now().strftime('%H:%M:%S'))
+  print("[%s] %d Project / %d tasks in sdir" % (datetime.datetime.now().strftime('%H:%M:%S'),len(tsr_table.plist), sum(list(len(p.task_list) for p in tsr_table.plist))))
   def categories_cmp(cm, an):
     '''
     return dictionary which id(int) to id(int)
@@ -220,8 +228,7 @@ def migrate(s_dir, t_dir):
           t_id = cat_cm['id']
           break
       if t_id == -1:
-        if yntest("* the task has more categories than original one *\
-                  * do you want to expand categories set and continue the migration? *",
+        if yntest("* the task has more categories than original one *\n* do you want to expand categories set and continue the migration? *",
                   "[y/N]"):
             continue
         else:
@@ -230,28 +237,42 @@ def migrate(s_dir, t_dir):
       info_dict.append({"name":_name, "id_change":"%d->%d"%(s_id, t_id)})
     return res_dict, info_dict
 
-  pdb.set_trace()
   #tp = Path(t_dir) #done above
-  #tp_task = tp / "project_0" / "task_0"
   tp_pj_task_name = "project_0/task_0"
-  #tp_anno = tp_task / "annotations"
-  #tp_image = tp_task / "images"
+  tp_pj = tp / "project_0"
+  tp_task = tp_pj / "task_0"
+  tp_anno = tp_task / "annotations"
+  tp_image = tp_task / "images"
+  tp_anno.mkdir(parents=True)
+  tp_image.mkdir(parents=True, exist_ok=True)
   common_cat = {}
   new_anno_json = {}
   new_anno_json['images'] = []
   new_anno_json['annotations'] = []
 
   g_img_id = 0
+  g_anno_id = 0
   # for project
   #   for task
   #     0) categories check
   #     1) copy images
   #     2) make annotation detail
   all_migration_info = {} # {project{task[cat_id_map, img_id_map]}}
+  all_migration_info['project_info'] = []
+  #print("[%s] do copy and gen tdir" % datetime.datetime.now().strftime('%H:%M:%S'))
+  #####################################################################
+  ## project loop ##
+  ##################
   for p in tsr_table.plist:
     project_mapping_info = {}
     project_mapping_info['name'] = p.name
+    project_mapping_info['task_info'] = []
+    print(" project %s start" % p.name)
+    ###################################################################
+    ## task loop ##
+    ###############
     for t in p.task_list:
+      print("  task %s start" % t.name)
       task_mapping_info = {}
       task_mapping_info['org_task_name'] = t.name
       task_mapping_info['cat_id_map'] = []
@@ -270,28 +291,33 @@ def migrate(s_dir, t_dir):
           print("* categories_cmp ends with error *")
           print("** aborted **")
           exit(0)
-        print('[debug] cat_id_map\n', cat_id_map)
-        pdb.set_trace()
+        print("  cat_id_map:", cat_id_map)
         # make categories # do later at end of project loop
 
-        print('[per img] new_anno_json[\'images\']')
-        pdb.set_trace()
         # 1) image copy
         #    include copy & rename
         l_img_id = 0
         img_id_map = {}
+        ###############################################################
+        ## image loop ##
+        ################
         for img in anno['images']:
           # img file copy
-          org_name = img['file_name'].split('/')[1]
-          org_file = sp / img['file_name']
-          new_name = t.shortname + str(l_img_id)
-          new_file = tp / tp_pj_task_name / new_name
-          shutil.copy(org_file, new_file) #TODO 20210803 #org_file location wrong #TODO hotfix!!
-          _info_str = org_file + '->' + new_file
+          org_name = img['file_name'].split('/')[-1]
+          file_format = img['file_name'].split('.')[-1]
+          #org_name = Path(img['file_name']).name
+          org_file = t.image_loc / org_name
+          new_name = t.shortname + '_' + str(l_img_id) + '.' + file_format
+          new_file = tp_image / new_name
+          try:
+            shutil.copyfile(org_file, new_file)
+          except:
+            print("** shutil.copy sth wrong **")
+            pdb.set_trace()
+          _info_str = str(org_file) + ' -> ' + str(new_file)
           task_mapping_info['img_id_map'].append(_info_str)
+          print("  cp", _info_str)
 
-          print('[debug] '+_info_str)
-          pdb.set_trace()
           # id matching # will be used for annotations['image_id']
           org_id = img['id']
           new_id = g_img_id
@@ -303,13 +329,12 @@ def migrate(s_dir, t_dir):
                                           "file_name": tp_pj_task_name+'/'+new_name,
                                           "flickr_url": img["flickr_url"],
                                           "coco_url": img["coco_url"],
-                                          "date_created": img["date_created"]
+                                          "date_captured": img["date_captured"]
                                           })
           g_img_id += 1
           l_img_id += 1
 
-        print('[per anno] new_anno_json[\'annotations\']')
-        pdb.set_trace()
+        print("  anno[\'annoatation\'] start")
         # 2) make annotations detail
         for an in anno['annotations']:
           new_anno_json['annotations'].append({"id": g_anno_id,
@@ -321,13 +346,19 @@ def migrate(s_dir, t_dir):
                                                "iscrowd": an['iscrowd'],
                                                "attributes": an['attributes']
                                                })
-        pdb.set_trace()
+          g_anno_id += 1
+        print("  anno[\'annoatation\'] done")
+        #pdb.set_trace()
         # TODO(changmin): supercategory = ''
-
+      project_mapping_info['task_info'].append(task_mapping_info)
     # end for task_list:
+    all_migration_info['project_info'].append(project_mapping_info)
   # end for tsr_table.plist:
+  tp_info = tp / "migration_info.json"
+  with open(tp_info, 'w') as f:
+    json.dump(all_migration_info, f, indent=4)
 
-  # N) make other details of new annotation json file
+  # 4) make other details of new annotation json file
   # new_anno_json['images'] = done
   # new_anno_json['annotations'] = done
   new_anno_json['categories'] = common_cat
@@ -342,15 +373,19 @@ def migrate(s_dir, t_dir):
                            "version": "",
                            "year": datetime.datetime.now().strftime('%Y')
                            }
+  print("[%s] anno json saving" % datetime.datetime.now().strftime('%H:%M:%S'))
   # TODO
   # dummy info fill
   # license stacking
-
+  tp_anno_file = tp_anno / "instances_default.json"
+  with open(tp_anno_file, 'w') as f:
+    json.dump(new_anno_json, f)
+  print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
   #make new tsr
-  print("make new tsr")
-    #? dir read만 하면 되는거 아닌가?
-    #save table in t_dir
-  #return new tsr
+  print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
+  tsr_table = TSR(Path(t_dir))
+  print("[%s] new tsr make done" % datetime.datetime.now().strftime('%H:%M:%S'))
+  #pdb.set_trace()
   return tsr_table
 
 def update():
@@ -384,32 +419,37 @@ if __name__ == "__main__":
   args = parser.parse_args()
 #  print(args.accumulate(args.integers))
 
-  pdb.set_trace()
+  ###############################################
+  #### commands                              ####
+  ###############################################
   if args.command == "migrate":
     # option --sdir, tdir check
     if args.sdir == None:
-      if yntest("command \"migrate\" require --sdir. continue as default? [default=./results]", "[Y/n]"):
+      if yntest("* command \"migrate\" require --sdir. continue as default? [default=./results] *", "[Y/n]"):
         args.sdir = "./results"
-        print("* sdir = %s *" % args.sdir)
+        print("-> sdir = %s" % args.sdir)
       else:
         print("** sdir is not decided -> abort **")
         exit(0)
     if args.tdir == None:
-      if yntest("command \"migrate\" require --tdir. continue as default? [default=./tsr]", "[Y/n]"):
+      if yntest("* command \"migrate\" require --tdir. continue as default? [default=./tsr] *", "[Y/n]"):
         args.tdir = "./tsr"
-        print("* tdir = %s *" % args.tdir)
+        print("-> tdir = %s" % args.tdir)
       else:
         print("** tdir is not decided -> abort **")
         exit(0)
     ntsr = migrate(args.sdir, args.tdir)
     if ntsr == None:
-      print("* the migration ended abnormally, please refer the error code *")
+      print("** the migration ended abnormally, please refer the error code **")
       exit(0)
+  ###############################################
   elif args.command == "update":
     # option --tdir check
     update() # do sth
+  ###############################################
   elif args.command == "extract":
     # option -i, -x check
-    extract() # do sth
+    extractor = extract() # do sth
+    #TODO make extractor and run migrate with extractor
   else:
     args.__repr__()
