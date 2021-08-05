@@ -359,7 +359,7 @@ def migrate(s_dir, t_dir, extractor=None):
                                           "width": img["width"],
                                           "height": img["height"],
                                           "license": img["license"],
-                                          "file_name": tp_pj_task_name+'/'+new_name,
+                                          "file_name": tp_pj_task_name+'/images/'+new_name,
                                           "flickr_url": img["flickr_url"],
                                           "coco_url": img["coco_url"],
                                           "date_captured": img["date_captured"]
