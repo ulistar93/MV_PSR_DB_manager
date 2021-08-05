@@ -37,6 +37,21 @@ def yntest(message, default):
       print("** There is wrong input. Please retry **")
     redo_msg = 're: '
 
+def txtest(message, default):
+  '''
+    message : display text
+    default : return when in '' (empty string)
+    return : input text list
+  '''
+  redo_msg = ''
+  while True:
+    ans = input(redo_msg + message + ': ')
+    if ans == '':
+      return default
+    else:
+      return ans.split(' ')
+    redo_msg = 're: '
+
 class Task:
   def __init__(self, t_path):
     self.path = t_path
@@ -163,6 +178,8 @@ def migrate(s_dir, t_dir, extractor=None):
     - gen a new table file for t_dir
     - return new tsr class for sanity check
   '''
+  if extractor == None:
+    extractor = lambda x : True
 
   #t_dir empty check
   tp = Path(t_dir)
@@ -223,16 +240,25 @@ def migrate(s_dir, t_dir, extractor=None):
       _name = cat_an['name']
       s_id = cat_an['id']
       t_id = -1
-      for cat_cm in cm:
-        if _name == cat_cm['name']:
-          t_id = cat_cm['id']
-          break
-      if t_id == -1:
-        if yntest("* the task has more categories than original one *\n* do you want to expand categories set and continue the migration? *",
-                  "[y/N]"):
-            continue
-        else:
-          return None, None
+      if extractor(_name): # T: to be include
+        for cat_cm in cm:
+          if _name == cat_cm['name']:
+            t_id = cat_cm['id']
+            break
+        if t_id == -1:
+          if yntest("* the task has more categories than original one *\n* do you want to expand categories set and continue the migration? *",
+                    "[y/N]"):
+            max_t_id = max([ x['id'] for x in cm])
+            t_id = max_t_id + 1
+            cm.append({"id": t_id,
+                       "name": _name,
+                       "supercategory":""
+                       })
+            pass
+          else:
+            return None, None
+      else: # excluded label -> skipping
+        pass # keep t_id = -1
       res_dict[s_id] = t_id
       info_dict.append({"name":_name, "id_change":"%d->%d"%(s_id, t_id)})
     return res_dict, info_dict
@@ -277,7 +303,6 @@ def migrate(s_dir, t_dir, extractor=None):
       task_mapping_info['org_task_name'] = t.name
       task_mapping_info['cat_id_map'] = []
       task_mapping_info['img_id_map'] = []
-      rname= t.shortname
       # anno_file(instances_default.json) read
       with open(t.anno_file, 'r') as f:
         anno = json.load(f)
@@ -294,6 +319,12 @@ def migrate(s_dir, t_dir, extractor=None):
         print("  cat_id_map:", cat_id_map)
         # make categories # do later at end of project loop
 
+        # 0-1) extractor remove no labeling image
+        img_copy_list_id = set()
+        for an in anno['annotations']:
+          if cat_id_map[an['category_id']] != -1:
+            img_copy_list_id.add(an['image_id'])
+
         # 1) image copy
         #    include copy & rename
         l_img_id = 0
@@ -302,12 +333,14 @@ def migrate(s_dir, t_dir, extractor=None):
         ## image loop ##
         ################
         for img in anno['images']:
+          if img['id'] not in img_copy_list_id:
+            continue
           # img file copy
           org_name = img['file_name'].split('/')[-1]
           file_format = img['file_name'].split('.')[-1]
           #org_name = Path(img['file_name']).name
           org_file = t.image_loc / org_name
-          new_name = t.shortname + '_' + str(l_img_id) + '.' + file_format
+          new_name = org_name if t.shortname == '' else t.shortname + '_' + str(l_img_id) + '.' + file_format
           new_file = tp_image / new_name
           try:
             shutil.copyfile(org_file, new_file)
@@ -337,16 +370,17 @@ def migrate(s_dir, t_dir, extractor=None):
         print("  anno[\'annoatation\'] start")
         # 2) make annotations detail
         for an in anno['annotations']:
-          new_anno_json['annotations'].append({"id": g_anno_id,
-                                               "image_id": img_id_map[an['image_id']],
-                                               "category_id": cat_id_map[an['category_id']],
-                                               "segmentation": an['segmentation'],
-                                               "area": an['area'],
-                                               "bbox": an['bbox'],
-                                               "iscrowd": an['iscrowd'],
-                                               "attributes": an['attributes']
-                                               })
-          g_anno_id += 1
+          if cat_id_map[an['category_id']] != -1:
+            new_anno_json['annotations'].append({"id": g_anno_id,
+                                                 "image_id": img_id_map[an['image_id']],
+                                                 "category_id": cat_id_map[an['category_id']],
+                                                 "segmentation": an['segmentation'],
+                                                 "area": an['area'],
+                                                 "bbox": an['bbox'],
+                                                 "iscrowd": an['iscrowd'],
+                                                 "attributes": an['attributes']
+                                                 })
+            g_anno_id += 1
         print("  anno[\'annoatation\'] done")
         #pdb.set_trace()
         # TODO(changmin): supercategory = ''
@@ -383,10 +417,13 @@ def migrate(s_dir, t_dir, extractor=None):
   print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
   #make new tsr
   print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
-  tsr_table = TSR(Path(t_dir))
+  ntsr_table = TSR(Path(t_dir))
   print("[%s] new tsr make done" % datetime.datetime.now().strftime('%H:%M:%S'))
   #pdb.set_trace()
-  return tsr_table
+  tt_pkl = Path(t_dir) / "db_table.pkl"
+  with open(tt_pkl, 'wb') as f:
+    pickle.dump(ntsr_table, f) # save TSR class
+  return ntsr_table
 
 def update():
   '''
@@ -398,23 +435,30 @@ def update():
   '''
   pass
 
-def extract():
+def includer(elem):
   '''
-  filter_(condition, s_dir, t_dir):
-    :return: TSR?
-    condition = include [] or exclude []
-    read s_dir's TSR table file and
-    choose some data which fit the condition
+  includer(elem):
+    :return: lambda
+    elem: the labels which be included
   '''
-  pass
+  return lambda x: True if x in elem else False
+
+def excluder(elem):
+  '''
+  excluder(elem):
+    :return: lambda
+    elem: the labels which be excluded
+  '''
+  return lambda x: False if x in elem else True
+
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="TSR db manager")
   parser.add_argument('command', choices=['migrate', 'update', 'extract'],metavar='command', type=str, help="Among \"migrate, update, extract\", choose command what you want to do")
   parser.add_argument('-s','--sdir', metavar='PATH', type=str, help="source directory")
   parser.add_argument('-t','--tdir', metavar='PATH', type=str, help="target directory")
-  parser.add_argument('-i','--include', metavar='LABEL', type=str, nargs='+', help="including conditions for filtering")
-  parser.add_argument('-x','--exclude', metavar='LABEL', type=str, nargs='+', help="excluding conditions for filtering")
+  parser.add_argument('-i','--include', metavar='LABEL', type=str, nargs='+', help="including conditions for filtering. divide as space")
+  parser.add_argument('-x','--exclude', metavar='LABEL', type=str, nargs='+', help="excluding conditions for filtering. divide as space")
 
   args = parser.parse_args()
 #  print(args.accumulate(args.integers))
@@ -448,8 +492,41 @@ if __name__ == "__main__":
     update() # do sth
   ###############################################
   elif args.command == "extract":
+    # option --sdir, tdir check
+    if args.sdir == None:
+      if yntest("* command \"extract\" require --sdir. continue as default? [default=./tsr] *", "[Y/n]"):
+        args.sdir = "./tsr"
+        print("-> sdir = %s" % args.sdir)
+      else:
+        print("** sdir is not decided -> abort **")
+        exit(0)
+    if args.tdir == None:
+      if yntest("* command \"extract\" require --tdir. continue as default? [default=./tsr_ex] *", "[Y/n]"):
+        args.tdir = "./tsr_ex"
+        print("-> tdir = %s" % args.tdir)
+      else:
+        print("** tdir is not decided -> abort **")
+        exit(0)
     # option -i, -x check
-    extractor = extract() # do sth
-    #TODO make extractor and run migrate with extractor
+    pdb.set_trace()
+    if (args.include == None) and (args.exclude == None):
+      print("** command \"extract\" require --include or --exclude at least one. **")
+      exit(0)
+    if (args.include != None) and (args.exclude != None):
+      print("** command \"extract\" require --include or --exclude at most one. **")
+      exit(0)
+    # TODO 1 - make ,(comma) separation with args parse
+    # TODO 2 - getting input when it is empty
+    pdb.set_trace()
+    if args.include != None:
+      ext = includer(args.include)
+    elif args.exclude != None:
+      ext = excluder(args.exclude)
+    ntsr = migrate(args.sdir, args.tdir, extractor = ext)
+    if ntsr == None:
+      print("** the migration ended abnormally, please refer the error code **")
+      exit(0)
+    # TODO adv extractor - handel label and attribute too
+    #                      suggest) read selection file (ex. --extract-file stop_sign.config) composed to some formatted context
   else:
     args.__repr__()

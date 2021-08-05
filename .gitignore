@@ -1,3 +1,8 @@
+# user define
+results/
+tsr/
+tsr_ex/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
