@@ -239,26 +239,26 @@ def migrate(s_dir, t_dir, extractor=None):
     for cat_an in an:
       _name = cat_an['name']
       s_id = cat_an['id']
-      t_id = -1
+      t_id = 0
       if extractor(_name): # T: to be include
         for cat_cm in cm:
           if _name == cat_cm['name']:
             t_id = cat_cm['id']
             break
-        if t_id == -1:
-          if yntest("* the task has more categories than original one *\n* do you want to expand categories set and continue the migration? *",
-                    "[y/N]"):
-            max_t_id = max([ x['id'] for x in cm])
-            t_id = max_t_id + 1
-            cm.append({"id": t_id,
-                       "name": _name,
-                       "supercategory":""
-                       })
-            pass
-          else:
-            return None, None
+        if t_id == 0:
+          #if yntest("* the task has more categories than original one *\n* do you want to expand categories set and continue the migration? *", "[y/N]"):
+          max_t_id = max([ x['id'] for x in cm]) if cm else 0 #if not empty -> max
+          t_id = max_t_id + 1
+          cm.append({"id": t_id,
+                     "name": _name,
+                     "supercategory":""
+                     })
+          # extend always
+          #pass
+          #else:
+          #  return None, None
       else: # excluded label -> skipping
-        pass # keep t_id = -1
+        pass # keep t_id = 0
       res_dict[s_id] = t_id
       info_dict.append({"name":_name, "id_change":"%d->%d"%(s_id, t_id)})
     return res_dict, info_dict
@@ -271,7 +271,8 @@ def migrate(s_dir, t_dir, extractor=None):
   tp_image = tp_task / "images"
   tp_anno.mkdir(parents=True)
   tp_image.mkdir(parents=True, exist_ok=True)
-  common_cat = {}
+  #common_cat = {}
+  common_cat = []
   new_anno_json = {}
   new_anno_json['images'] = []
   new_anno_json['annotations'] = []
@@ -308,8 +309,8 @@ def migrate(s_dir, t_dir, extractor=None):
         anno = json.load(f)
 
         # 0) category check
-        if not bool(common_cat):
-          common_cat = anno['categories']
+        #if not bool(common_cat):
+        #  common_cat = anno['categories']
         # do comparision, return anno's cat's id -> common cat's id dict
         cat_id_map, task_mapping_info['cat_id_map'] = categories_cmp(common_cat, anno['categories'])
         if cat_id_map == None:
@@ -322,7 +323,7 @@ def migrate(s_dir, t_dir, extractor=None):
         # 0-1) extractor remove no labeling image
         img_copy_list_id = set()
         for an in anno['annotations']:
-          if cat_id_map[an['category_id']] != -1:
+          if cat_id_map[an['category_id']] != 0:
             img_copy_list_id.add(an['image_id'])
 
         # 1) image copy
@@ -370,7 +371,7 @@ def migrate(s_dir, t_dir, extractor=None):
         print("  anno[\'annoatation\'] start")
         # 2) make annotations detail
         for an in anno['annotations']:
-          if cat_id_map[an['category_id']] != -1:
+          if cat_id_map[an['category_id']] != 0:
             new_anno_json['annotations'].append({"id": g_anno_id,
                                                  "image_id": img_id_map[an['image_id']],
                                                  "category_id": cat_id_map[an['category_id']],
@@ -508,7 +509,6 @@ if __name__ == "__main__":
         print("** tdir is not decided -> abort **")
         exit(0)
     # option -i, -x check
-    pdb.set_trace()
     if (args.include == None) and (args.exclude == None):
       print("** command \"extract\" require --include or --exclude at least one. **")
       exit(0)
@@ -517,7 +517,6 @@ if __name__ == "__main__":
       exit(0)
     # TODO 1 - make ,(comma) separation with args parse
     # TODO 2 - getting input when it is empty
-    pdb.set_trace()
     if args.include != None:
       ext = includer(args.include)
     elif args.exclude != None:
