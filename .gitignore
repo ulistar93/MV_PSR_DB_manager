@@ -2,6 +2,7 @@
 results/
 tsr/
 tsr_ex/
+*_old
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
