@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./manage.py extract --sdir ./tsr_t --tdir ./tsr_tex --include "Stop sign - Oct"
+./manage.py extract --sdir ./tsr --tdir ./tsr_ex --include "Stop sign - Oct"

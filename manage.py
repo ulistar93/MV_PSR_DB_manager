@@ -452,7 +452,7 @@ def migrate(s_dir, t_dir, extractor=None):
   # end for tsr_table.plist:
   tp_info = tp / "migration_info.json"
   with open(tp_info, 'w') as f:
-    json.dump(all_migration_info, f, indent=4)
+    json.dump(all_migration_info, f, ensure_ascii=False, sort_keys=True, indent=4)
 
   # 4) make other details of new annotation json file
   # new_anno_json['images'] = done
@@ -475,7 +475,7 @@ def migrate(s_dir, t_dir, extractor=None):
   # license stacking
   tp_anno_file = tp_anno / "instances_default.json"
   with open(tp_anno_file, 'w') as f:
-    json.dump(new_anno_json, f)
+    json.dump(new_anno_json, f, sort_keys=True)
   print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
   #make new tsr
   print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
