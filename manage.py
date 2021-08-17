@@ -4,7 +4,6 @@ import os
 import sys
 import argparse
 #import pandas
-import pickle # vs json
 import json
 from pathlib import Path
 import datetime
@@ -51,22 +50,122 @@ def txtest(message, default):
       return ans.split(' ')
     redo_msg = 're: '
 
-class Task():
-  def __init__(self, t_path):
-    self.path = t_path
-    self.name = t_path.name
-    self.shortname, self.image_loc, self.image_files, self.anno_file = self.set_task_info(t_path)
-    self.num_image = len(self.image_files)
+class TSR:
+  def __init__(self, arg=None):
+    if isinstance(arg, dict):
+      self.init_from_dict(arg)
+    elif isinstance(arg, Path):
+      self.init_from_path(arg)
+    elif arg == None:
+      self.name = "TSR"
+      self.path = ''
+      self.date_created = ''
+      self.plist = []
+      self.num_project = 0
+    else:
+      raise TypeError('Wrong initialization of Class \'Project\'')
+
+  def __repr__(self):
+    return "name: %s\ndate_created: %s\nlen(plist): %d" % (self.name,self.date_created,len(self.plist))
+
+  def init_from_dict(self, s_dic):
+    self.name = s_dic['name'] #'TSR'
+    self.path = s_dic['path']
+    self.date_created = s_dic['date_created']
+    _plist = []
+    for p in s_dic['plist']:
+      _plist.append(Project(p))
+    self.plist = _plist
+    self.num_project = len(self.plist)
+
+  def init_from_path(self, sdir):
+    self.name = 'TSR'
+    self.path = str(sdir)
+    self.date_created = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    _plist = []
+    _proj_candi = [ x for x in list(sdir.iterdir()) if x.is_dir() ]
+    for pc in _proj_candi:
+      _plist.append(Project(pc))
+    self.plist = _plist
+    self.num_project = len(self.plist)
+
+class Project(TSR):
+  def __init__(self, arg=None):
+    if isinstance(arg, dict):
+      self.init_from_dict(arg)
+    elif isinstance(arg, Path):
+      self.init_from_path(arg)
+    elif arg == None:
+      self.name = ''
+      self.task_list = []
+      self.num_task = 0
+    else:
+      pdb.set_trace()
+      raise TypeError('Wrong initialization of Class \'Project\'')
+
+  def __repr__(self):
+    return "{name: %s, num_task: %d}" % (self.name,self.num_task)
+
+  def init_from_dict(self, p_dic):
+    # initialize from dictionary
+    try:
+      self.name = p_dic['name']
+      _tlist = []
+      for ts in p_dic['task_list']:
+        _tlist.append(Task(ts))
+      self.task_list = _tlist
+      self.num_task = p_dic['num_task']
+    except:
+      print('input dict key doesn\'t match with Task class')
+      exit(0)
+
+  def init_from_path(self, p_path):
+    self.name = p_path.name
+    _tlist = []
+    _task_candi = list(p_path.iterdir())
+    for tc in _task_candi:
+      if not tc.is_dir():
+        continue
+      else:
+        _tlist.append(Task(tc))
+    self.task_list = _tlist
+    self.num_task = len(self.task_list)
+
+class Task(Project):
+  def __init__(self, arg=None):
+    if isinstance(arg, dict):
+      self.init_from_dict(arg)
+    elif isinstance(arg, Path):
+      self.init_from_path(arg)
+    elif arg == None:
+      self.path = ''
+      self.name = ''
+      self.shortname = ''
+      self.image_loc = Path()
+      self.image_files = []
+      self.anno_file = ''
+      self.num_image = 0
+    else:
+      raise TypeError('Wrong initialization of Class \'Task\'')
 
   def __repr__(self):
     return "{name: %s, shortname: %s, path: %s, # of images: %d, image_location: %s, anno_file: %s}" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
-    #return "name: %s\nshortname: %s\npath: %s\nimage_location: %s\n# of images: %d\nanno_file: %s" % (self.name,self.shortname,str(self.path),str(self.image_loc),len(self.image_files),str(self.anno_file))
 
-#  def __iter__(self):
-#    for key in self.__dict__:
-#      yield key, getattr(self, key)
+  def init_from_dict(self, t_dic):
+    # initialize from dictionary
+    try:
+      self.anno_file = t_dic['anno_file']
+      self.image_files = t_dic['image_files']
+      self.image_loc = Path(t_dic['image_loc'])
+      self.name = t_dic['name']
+      self.num_image = t_dic['num_image']
+      self.path = t_dic['path']
+      self.shortname = t_dic['shortname']
+    except:
+      print('input dict key doesn\'t match with Task class')
+      exit(0)
 
-  def set_task_info(self, path):
+  def init_from_path(self, t_path):
     # read coco format
     # task_dir
     #  ├── anoatation
@@ -75,7 +174,9 @@ class Task():
     #      └── [folders]
     #          └── ...
     #              └── *.jpg, jpeg, png, bmp
-    _anno_files = list(path.rglob('instances_default.json'))
+    self.path = t_path
+    self.name = t_path.name
+    _anno_files = list(t_path.rglob('instances_default.json'))
     _anno_file = _anno_files[0]
     if len(_anno_files) > 1:
       print("** There are serveral annotation files more than 1 in a single Task **")
@@ -85,7 +186,7 @@ class Task():
     _image_loc = []
     image_format_support = ['jpg', 'jpeg', 'png', 'bmp']
     for img_fmt in image_format_support:
-      _image_files = list(path.rglob('*.'+img_fmt))
+      _image_files = list(t_path.rglob('*.'+img_fmt))
       _image_files.sort()
       for i in _image_files:
         if i.parent in _image_loc:
@@ -109,62 +210,18 @@ class Task():
     # in order to integrate between old(/images/*.jpg) and new dataset, to do this
     _name = re.sub('[^a-zA-Z0-9_/\-]', '', _name)
     _name = _name.replace('-','_').replace('/', '-')
-    return _name, _image_loc, _image_files_all, _anno_file
 
-class Project():
-  def __init__(self, p_path):
-    self.name = p_path.name
-    self.task_list = [ Task(x) for x in list(p_path.iterdir()) if x.is_dir() ]
-    self.num_task = len(self.task_list)
-
-  def __repr__(self):
-    return "{name: %s, num_task: %d}" % (self.name,self.num_task)
-
-#  def __iter__(self):
-#    for key in self.__dict__:
-#      yield key, getattr(self, key)
-
-class TSR:
-  def __init__(self, sdir):
-    self.name = "TSR"
-    self.path = str(sdir)
-    self.date_created = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    self.plist = self.set_project_list(sdir)
-
-  def read_dict(self, r_dic):
-    for key in r_dic:
-      if 'name' == key:
-        self.name = r_dic[key]
-        # TODO
-        # the function is a kind of copy constructor for json loading
-        # please refer the other comments by searching "json_decoder"
-      pass
-
-  def __repr__(self):
-    return "name: %s\ndate_created: %s\nlen(plist): %d" % (self.name,self.date_created,len(self.plist))
-
-  #def __dict__(self):
-  #  return {'name': self.name, 'path': self.path, 'date_created': self.date_created, 'plist': [ p.__dict__ for p in self.plist]}
-
-#  def __iter__(self):
-#    for key in self.__dict__:
-#      yield key, getattr(self, key)
-    #return {'name': self.name, 'path': self.path, 'date_created': self.date_created, 'plist': [ p.__dict__ for p in self.plist]}
-
-  def set_project_list(self, sdir):
-    _plist = []
-    _dir_list = [ x for x in list(sdir.glob('*')) if x.is_dir() ]
-    for d in _dir_list:
-      _plist.append(Project(d))
-    #pdb.set_trace()
-    return _plist
+    self.shortname = _name
+    self.anno_file = _anno_file
+    self.image_loc = _image_loc
+    self.image_files = _image_files_all
+    self.num_image = len(self.image_files)
 
 def json_encoder(o):
   if isinstance(o, TSR):
     return o.__dict__
   elif isinstance(o, Project):
     return o.__dict__
-    #return {'__Project__': o.__dict__}
   elif isinstance(o, Task):
     return o.__dict__
   elif isinstance(o, Path):
@@ -172,9 +229,8 @@ def json_encoder(o):
   raise TypeError('not JSON serializable')
 
 #def json_decoder(o):
-#  if 'TSR' == o: ... TODO
-# to be set a proper constructors for each classes
-# refer the other comments which searched by "json_decoder"
+#  if '__PosixPath__' in o:
+#    return Path(o['__PosixPath__'])
 
 def migrate(s_dir, t_dir, extractor=None):
   #TODO extractor add
@@ -218,30 +274,21 @@ def migrate(s_dir, t_dir, extractor=None):
 
   #s_dir table file check
   print("[%s] s_dir table file check" % datetime.datetime.now().strftime('%H:%M:%S'))
-  #st_pkl = Path(s_dir) / "db_table.pkl"
   st_json = Path(s_dir) / "db_table.json"
-  #if st_pkl.exists():
   if st_json.exists():
     #s_dir table load
-    print("* s_dir db_table.pkl file already exist -> load db_table.pkl *")
-    #with open(st_pkl, 'rb') as f:
+    print("* s_dir db_table.json file already exist -> load db_table.json *")
     with open(st_json, 'r') as f:
-      #tsr_table = pickle.load(f) # load TSR class
-      tsr_table = json.load(f) # load TSR class
+      tsr_table_json = json.load(f) # load TSR class
+    tsr_table = TSR(tsr_table_json)
   else:
     #s_dir table create
-    #print("* s_dir db_table.pkl file is not exist -> make new TSR & save pkl")
     print("* s_dir db_table.json file is not exist -> make new TSR & save json")
     tsr_table = TSR(Path(s_dir))
     #s_dir table save
-    #with open(st_pkl, 'wb') as f:
     with open(st_json, 'w') as f:
-      #pickle.dump(tsr_table, f) # save TSR class
-      json.dump(tsr_table, f, indent=4) # save TSR class # TODO - to be serialized
+      json.dump(tsr_table, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
 
-  # copy and generate t_dir dataset #
-  # TODO(changmin) : making as a function of some class object would be botter...
-  #                  candidate = TSR? or else?
   print("[%s] do copy and gen tdir" % datetime.datetime.now().strftime('%H:%M:%S'))
   print("[%s] %d Project / %d tasks in sdir" % (datetime.datetime.now().strftime('%H:%M:%S'),len(tsr_table.plist), sum(list(len(p.task_list) for p in tsr_table.plist))))
   def categories_cmp(cm, an):
@@ -435,9 +482,9 @@ def migrate(s_dir, t_dir, extractor=None):
   ntsr_table = TSR(Path(t_dir))
   print("[%s] new tsr make done" % datetime.datetime.now().strftime('%H:%M:%S'))
   #pdb.set_trace()
-  tt_pkl = Path(t_dir) / "db_table.pkl"
-  with open(tt_pkl, 'wb') as f:
-    pickle.dump(ntsr_table, f) # save TSR class
+  tt_json = Path(t_dir) / "db_table.json"
+  with open(tt_json, 'w') as f:
+    json.dump(ntsr_table, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
   return ntsr_table
 
 def update():
@@ -556,36 +603,14 @@ if __name__ == "__main__":
     if st_json.exists():
       # s_dir table load
       with open(st_json, 'r') as f:
-        tsr_table_old = json.load(f)
-        # TODO : json_decoder
-        #tsr_table_old = json.load(f, object_hook = json_decoder)
-        # This json loading without object_hook(json_decoder),
-        # just load the data from json and make a "dict" type
-        # In order to get a whole TSR class type object,
-        # the each classes (TSR, Project, Task) should be implemented
-        # with some constructor which can get the data from dictionary
-      #print(tsr_table_old)
-      # Because of above issue, the printing is dirty
-      # we cannot use the __repr__ functions of each classes
-      # Temporary print below
-      for k in tsr_table_old:
-        if 'plist' in k:
-          print(k)
-          for p in tsr_table_old[k]:
-            for k1 in p:
-              if 'task_list' in k1:
-                print('\t',k1)
-                for t in p[k1]:
-                  for k2 in t:
-                    if 'image_files' in k2:
-                      print('\t\t',k2)
-                    else:
-                      print('\t\t',k2,t[k2])
-              else:
-                print('\t',k1,':',p[k1])
-        else:
-          print(k,':',tsr_table_old[k])
-
+        tsr_table_json = json.load(f)
+      tsr_table_old = TSR(tsr_table_json)
+      pdb.set_trace()
+      print(tsr_table_old)
+      for p in tsr_table_old.plist:
+        print('\t',p)
+        for t in p.task_list:
+          print('\t\t',t)
       pdb.set_trace()
       # ask whether renew the table json
       if yntest("* s_dir db_table.json file already exist. Do you want to renew the db_table.json? *", "[y/N]"):
@@ -593,12 +618,11 @@ if __name__ == "__main__":
       else:
         print("** s_dir db_table.json already exist -> abort **")
         exit(0)
-    #s_dir table create
-    #print("* s_dir db_table.pkl file is not exist -> make new TSR & save pkl")
+    #s_dir table create & save
     tsr_table = TSR(Path(args.sdir))
-    #s_dir table save
     with open(st_json, 'w') as f:
       pdb.set_trace()
-      json.dump(tsr_table, f, indent=4, default=json_encoder, ensure_ascii=False)
+      json.dump(tsr_table, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
+      print("* s_dir db_table.json is renewed *")
   else:
     args.__repr__()
