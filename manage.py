@@ -487,6 +487,193 @@ def migrate(s_dir, t_dir, extractor=None):
     json.dump(ntsr_table, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
   return ntsr_table
 
+
+
+
+
+
+
+class DB:
+  # db, db.p[i], db.p[i].t[j]
+  def __init__(self, tsr_o, parent_level=0):
+    if parent_level == 0:
+      self.level = parent_level + 1
+      self.level_name = 'TSR'
+      self.name = tsr_o.name
+      self.p = [ DB(p, parent_level=self.level) for p in tsr_o.plist ] # project list
+      self.child = self.p
+      #self.img, self.anno, self.cat = self.init_lists()
+    elif parent_level == 1:
+      self.level = parent_level + 1
+      self.level_name = 'Project'
+      self.name = tsr_o.name
+      self.t = [ DB(t, parent_level=self.level) for t in tsr_o.task_list ] # task list
+      self.child = self.t
+    elif parent_level == 2:
+      self.level = parent_level + 1
+      self.level_name = 'Task'
+      self.name = tsr_o.name
+      self.child = []
+    else:
+      print("** DB level is too deeper than task -> abort **")
+      exit(0)
+    #pdb.set_trace()
+    self.img, self.anno, self.cat = self.init_lists(tsr_o)
+    # self.img = db_list(type=img)
+    # self.anno = db_list(type=anno)
+    # self.cat = [] # category list
+
+  def __repr__(self):
+    lv = self.level
+    tb_2 = '\t' * (lv - 2)
+    tb_1 = '\t' * (lv - 1)
+    tb = '\t' * lv
+    _str = [ tb_2 + '{' ]
+    _str += [ tb + "level: %d" % self.level ]
+    _str += [ tb + "level_name: %s" % self.level_name ]
+    _str += [ tb + "name: %s" % self.name ]
+    _str += [ tb + "child:" ]
+    _str += [ tb + "%s" % str(self.child) ]
+    #_str += [ tb + "img: %s" % str(self.img) ]
+    #_str += [ tb + "anno: %s" % str(self.child) ]
+    #_str += [ tb + "cat: %s" % str(self.child) ]
+    _str += [ tb_1 + '}' ]
+    #_str += ["level: %s" % self.level, "name: %s" % self.name, "child":self.child]
+    #return str({"level": self.level, "name":self.name, "child":self.child})
+    return '\n'.join(_str)
+
+  def init_lists(self,tsr_o):
+    _img = db_list('img',[])
+    _anno = db_list('anno',[])
+    _cat = []
+    if self.child:
+      for cdb in self.child: # child is [db_project or db_task] , cdb = p or t
+        _img += cdb['img']
+        _anno += cdb['anno']
+        _cat += [ x for x in cdb['cat'] if x not in _cat ]
+    else:
+      # child empty <=> this db means "Task"
+      # open the anno file usually named "instances_default.json"
+      anno_file = Path(tsr_o.anno_file)
+      if not anno_file.exists():
+        print("** anno_file doesn't exist -> abort **")
+        exit(0)
+      else:
+        with open(anno_file, 'r') as f:
+          anno_js = json.load(f)
+          _img = db_list('img', anno_js["images"])
+          _anno = db_list('anno', anno_js["annotations"])
+          _cat = anno_js["categories"]
+    return _img, _anno, _cat
+
+  def __getitem__(self, key):
+    if key is 'img':
+      return self.img
+    elif key is 'anno':
+      return self.anno
+    elif key is 'cat':
+      return self.cat
+    else:
+      print("not %s key in db" % key)
+      pass
+
+class db_list(DB):
+  def __init__(self, list_type, dlist):
+    self.type = list_type # img or anno
+    self.list = dlist
+    self.num = len(dlist)
+
+  #def __repr__(self):
+  #  return self.list
+
+  #def __str__(self):
+  def __repr__(self):
+    pdb.set_trace()
+    # TODO : db_list cannot get a parent class level
+    #lv = self.level + 1
+    lv = super().level + 1
+    tb_2 = '\t' * (lv - 2)
+    tb_1 = '\t' * (lv - 1)
+    tb = '\t' * lv
+    _str = [ tb_2 + '{' ]
+    _str += [ tb + "type: %s" % self.type ]
+    _str += [ tb + "list: %s" % ("..." if self.list else "") ]
+    _str += [ tb + "num: %d" % self.num ]
+    _str += [ tb_1 + '}' ]
+    #_str += ["level: %s" % self.level, "name: %s" % self.name, "child":self.child]
+    #return str({"level": self.level, "name":self.name, "child":self.child})
+    return '\n'.join(_str)
+
+    #return "\n\t".join(['{',"type: "+self.type, "list: [%s]"%("..." if self.list else ""), "num: %d"%self.num, '}', ''])
+
+  def __add__(self, x):
+    if self.type != x.type:
+      print("** db_list cannot be added from different types **")
+      return []
+    else:
+      return db_list(self.type, self.list + x.list)
+
+  #def cat(self, search_key):
+  def cat(self, cat_idx):
+    #for 
+    #anno_info = super().anno_info
+    #if self.type == 'img':
+    #  anno_info
+    if type(search_key) == str:
+      #find key
+      pass
+    elif type(search_key) == int:
+      #find cat index
+      pass
+    pass
+    #return self.anno? img?
+
+class DB_viewer:
+  def __init__(self, tsr_table = None):
+    if tsr_table == None:
+      print("** there is no table to show -> abort **")
+      exit(0)
+    self.db = DB(tsr_table)
+    self.tsr = tsr_table
+
+  def interactive(self):
+    db = self.db
+    print("")
+    print("db = self")
+    print("db[] = img, anno, cat")
+  # db['img'] <- all image list
+  # db['anno'] <- all annotation list
+  # db['cat'] <- all cat list
+  # db['img'].cat("Stop sing - Oct")
+  # db['img'].cat(0)
+  #  -> img list which has "Stop sign - Oct" 
+  # db['anno'].cat(0)
+  #  -> anno list which has "Stop sign - Oct" 
+  # db.p <- db project list
+  # db.p[0] <- project 0
+  # db.p[0].t <- task list of project 0
+  # db.p[0].t[0] <- task 0 of project 0
+  # db.p[0]['img'] <- img list of project 0
+
+    pdb.set_trace()
+    #do sth in and out
+    pass
+
+  def img_list():
+    pass
+
+  def cat(self, category):
+    print()
+    pass
+    #return tsr['cat']
+
+
+
+
+
+
+
+
 def update():
   '''
   update(s_dir, t_dir):
@@ -601,28 +788,30 @@ if __name__ == "__main__":
     # json exist test
     st_json = Path(args.sdir) / "db_table.json"
     if st_json.exists():
-      # s_dir table load
-      with open(st_json, 'r') as f:
-        tsr_table_json = json.load(f)
-      tsr_table_old = TSR(tsr_table_json)
-      pdb.set_trace()
-      print(tsr_table_old)
-      for p in tsr_table_old.plist:
-        print('\t',p)
-        for t in p.task_list:
-          print('\t\t',t)
-      pdb.set_trace()
       # ask whether renew the table json
       if yntest("* s_dir db_table.json file already exist. Do you want to renew the db_table.json? *", "[y/N]"):
-        pass
+        #s_dir table create & save
+        tsr_table_new = TSR(Path(args.sdir))
+        with open(st_json, 'w') as f:
+          pdb.set_trace()
+          json.dump(tsr_table_new, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
+          print("* s_dir db_table.json is renewed *")
       else:
-        print("** s_dir db_table.json already exist -> abort **")
-        exit(0)
-    #s_dir table create & save
-    tsr_table = TSR(Path(args.sdir))
-    with open(st_json, 'w') as f:
-      pdb.set_trace()
-      json.dump(tsr_table, f, indent=4, default=json_encoder, ensure_ascii=False, sort_keys=True)
-      print("* s_dir db_table.json is renewed *")
+        print("* s_dir db_table.json already exist -> read & continue *")
+
+    # s_dir table load
+    with open(st_json, 'r') as f:
+      tsr_table_json = json.load(f)
+    tsr_table = TSR(tsr_table_json)
+    # print tsr_table
+    print(tsr_table)
+    for p in tsr_table.plist:
+      print('\t',p)
+      for t in p.task_list:
+        print('\t\t',t)
+
+    db_viewer = DB_viewer(tsr_table)
+    db_viewer.interactive()
+
   else:
     args.__repr__()
