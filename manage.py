@@ -517,40 +517,37 @@ class DB:
     else:
       print("** DB level is too deeper than task -> abort **")
       exit(0)
-    #pdb.set_trace()
-    self.img, self.anno, self.cat = self.init_lists(tsr_o)
+    self.img, self.anno, self.cate = self.init_lists(tsr_o)
     # self.img = db_list(type=img)
     # self.anno = db_list(type=anno)
-    # self.cat = [] # category list
+    # self.cate = [] # category list
 
   def __repr__(self):
-    lv = self.level
-    tb_2 = '\t' * (lv - 2)
-    tb_1 = '\t' * (lv - 1)
-    tb = '\t' * lv
-    _str = [ tb_2 + '{' ]
-    _str += [ tb + "level: %d" % self.level ]
-    _str += [ tb + "level_name: %s" % self.level_name ]
-    _str += [ tb + "name: %s" % self.name ]
-    _str += [ tb + "child:" ]
-    _str += [ tb + "%s" % str(self.child) ]
-    #_str += [ tb + "img: %s" % str(self.img) ]
-    #_str += [ tb + "anno: %s" % str(self.child) ]
-    #_str += [ tb + "cat: %s" % str(self.child) ]
-    _str += [ tb_1 + '}' ]
-    #_str += ["level: %s" % self.level, "name: %s" % self.name, "child":self.child]
-    #return str({"level": self.level, "name":self.name, "child":self.child})
-    return '\n'.join(_str)
+    _str = [ "\'level\': %d" % self.level ]
+    _str += [ "\'level_name\': \'%s\'" % self.level_name ]
+    _str += [ "\'name\': \'%s\'" % self.name ]
+    _str += [ "\'child\': %s" % str(self.child) ]
+    if self.level == 3: # print task's img, anno, cat only
+      _str += [ "\'img\': %s" % str(self.img) ]
+      _str += [ "\'anno\': %s" % str(self.anno) ]
+      _str += [ "\'cate\': %s" % str(self.cate) ]
+    else: # project and tsr has sum of child -> hide printing to avoid duplicate printing
+      _str += [ "\'img\': ..." ]
+      _str += [ "\'anno\': ..." ]
+      _str += [ "\'cate\': ..." ]
+    _str = '{ '+', '.join(_str)+' }'
+    return '\n'+_str+'\n'
 
   def init_lists(self,tsr_o):
-    _img = db_list('img',[])
-    _anno = db_list('anno',[])
-    _cat = []
+    db_list = self.db_list
+    _img = db_list(self, 'img', [])
+    _anno = db_list(self, 'anno', [])
+    _cate = db_list(self, 'cate', [])
     if self.child:
       for cdb in self.child: # child is [db_project or db_task] , cdb = p or t
         _img += cdb['img']
         _anno += cdb['anno']
-        _cat += [ x for x in cdb['cat'] if x not in _cat ]
+        _cate += [ x for x in cdb['cate'] if x not in _cate ]
     else:
       # child empty <=> this db means "Task"
       # open the anno file usually named "instances_default.json"
@@ -561,72 +558,77 @@ class DB:
       else:
         with open(anno_file, 'r') as f:
           anno_js = json.load(f)
-          _img = db_list('img', anno_js["images"])
-          _anno = db_list('anno', anno_js["annotations"])
-          _cat = anno_js["categories"]
-    return _img, _anno, _cat
+          _img = db_list(self, 'img', anno_js["images"])
+          _anno = db_list(self, 'anno', anno_js["annotations"])
+          _cate = db_list(self, 'cate', anno_js["categories"])
+    return _img, _anno, _cate
 
   def __getitem__(self, key):
     if key is 'img':
       return self.img
     elif key is 'anno':
       return self.anno
-    elif key is 'cat':
-      return self.cat
+    elif key is 'cate':
+      return self.cate
     else:
       print("not %s key in db" % key)
       pass
 
-class db_list(DB):
-  def __init__(self, list_type, dlist):
-    self.type = list_type # img or anno
-    self.list = dlist
-    self.num = len(dlist)
-
-  #def __repr__(self):
-  #  return self.list
-
-  #def __str__(self):
-  def __repr__(self):
+  def cat(self, search_key):
+    print("search key %s in db" % str(search_key))
+    print("sth db")
     pdb.set_trace()
-    # TODO : db_list cannot get a parent class level
-    #lv = self.level + 1
-    lv = super().level + 1
-    tb_2 = '\t' * (lv - 2)
-    tb_1 = '\t' * (lv - 1)
-    tb = '\t' * lv
-    _str = [ tb_2 + '{' ]
-    _str += [ tb + "type: %s" % self.type ]
-    _str += [ tb + "list: %s" % ("..." if self.list else "") ]
-    _str += [ tb + "num: %d" % self.num ]
-    _str += [ tb_1 + '}' ]
-    #_str += ["level: %s" % self.level, "name: %s" % self.name, "child":self.child]
-    #return str({"level": self.level, "name":self.name, "child":self.child})
-    return '\n'.join(_str)
+    return ""
 
-    #return "\n\t".join(['{',"type: "+self.type, "list: [%s]"%("..." if self.list else ""), "num: %d"%self.num, '}', ''])
+  class db_list:
+    def __init__(self, parent_db, list_type, dlist):
+      self.type = list_type # img or anno
+      self.parent_db = parent_db # img or anno
+      self.list = dlist
+      self.num = len(dlist)
 
-  def __add__(self, x):
-    if self.type != x.type:
-      print("** db_list cannot be added from different types **")
-      return []
-    else:
-      return db_list(self.type, self.list + x.list)
+    def __repr__(self):
+      return str(self.__dict__)
 
-  #def cat(self, search_key):
-  def cat(self, cat_idx):
-    #for 
-    #anno_info = super().anno_info
-    #if self.type == 'img':
-    #  anno_info
-    if type(search_key) == str:
-      #find key
+    def __str__(self):
+      _str = [ "\'type\': \'%s\'" % self.type ]
+      _str += [ "\'list\': \'%s\'" % ("..." if self.list else "") ]
+      _str += [ "\'num\': %d" % self.num ]
+      _str = '{ ' + ', '.join(_str) + ' }'
+      return _str
+
+    def __add__(self, x):
+      if type(x) == list:
+        self.list += x
+        self.num = len(self.list)
+        return self
+      elif self.type != x.type:
+        print("** db_list cannot be added from different types **")
+        return []
+      else:
+        self.list += x.list
+        self.num = len(self.list)
+        return self
+
+    def __iter__(self):
+      return iter(self.list)
+
+    def cat(self, search_key):
+      print("db_list cat %s" % self.type)
+      pdb.set_trace()
+      #super().cat(search_key)
+      #for 
+      #anno_info = super().anno_info
+      #if self.type == 'img':
+      #  anno_info
+      if type(search_key) == str:
+        #find key
+        pass
+      elif type(search_key) == int:
+        #find cat index
+        pass
       pass
-    elif type(search_key) == int:
-      #find cat index
-      pass
-    pass
-    #return self.anno? img?
+      #return self.anno? img?
 
 class DB_viewer:
   def __init__(self, tsr_table = None):
@@ -638,25 +640,40 @@ class DB_viewer:
 
   def interactive(self):
     db = self.db
-    print("")
-    print("db = self")
-    print("db[] = img, anno, cat")
-  # db['img'] <- all image list
-  # db['anno'] <- all annotation list
-  # db['cat'] <- all cat list
-  # db['img'].cat("Stop sing - Oct")
-  # db['img'].cat(0)
-  #  -> img list which has "Stop sign - Oct" 
-  # db['anno'].cat(0)
-  #  -> anno list which has "Stop sign - Oct" 
-  # db.p <- db project list
-  # db.p[0] <- project 0
-  # db.p[0].t <- task list of project 0
-  # db.p[0].t[0] <- task 0 of project 0
-  # db.p[0]['img'] <- img list of project 0
-
+    print("************************************************")
+    print("**          pdb.set_trace() stop              **")
+    print("**   & usage &                                **")
+    print("** db = self                                  **")
+    print("** db[] = img, anno, cat                      **")
+    print("** db['img']  <- all image list               **")
+    print("** db['anno'] <- all annotation list          **")
+    print("** db['cate'] <- all category list            **")
+    print("**  <- db .img .anno .cate also can use       **")
+    print("**                                            **")
+    print("**   & project task view &                    **")
+    print("** db.p    <- db project list                 **")
+    print("** db.p[0] <- project 0                       **")
+    print("** db.p[0].t    <- task list of project 0     **")
+    print("** db.p[0].t[0] <- task 0 of project 0        **")
+    print("**  <- p and t also access img,anno,cate      **")
+    print("** db.p[0]['img'] <- img list of project 0    **")
+    print("** db.p[0].t[0]['cate']                       **")
+    print("**  <- category list of task 0                **")
+    print("**                                            **")
+    print("**   & filtering &                            **")
+    print("** db['img'].cat('Stop sing - Oct')           **")
+    print("**  <- img list which has 'Stop sign - Oct'   **")
+    print("** db['img'].cat(1)                           **")
+    print("**  <- index also possible                    **")
+    print("**  <- please refer 'cate'index also possible **")
+    print("** db['anno'].cat(1)                          **")
+    print("**  <- anno list also available               **")
+    print("**                                            **")
+    print("************************************************")
     pdb.set_trace()
-    #do sth in and out
+    #do sth print
+    #db.cat(0)
+    db.p[0].t[0]['img'].cat(0)
     pass
 
   def img_list():
