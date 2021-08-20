@@ -575,10 +575,9 @@ class DB:
       pass
 
   def cat(self, search_key):
-    print("search key %s in db" % str(search_key))
-    print("sth db")
-    pdb.set_trace()
-    return ""
+    im_cat = self.img.cat(search_key)
+    an_cat = self.anno.cat(search_key)
+    return im_cat, an_cat
 
   class db_list:
     def __init__(self, parent_db, list_type, dlist):
@@ -588,11 +587,17 @@ class DB:
       self.num = len(dlist)
 
     def __repr__(self):
-      return str(self.__dict__)
+      _str = [ "\'type\': \'%s\'" % self.type ]
+      _str += [ "\'parent_db\': <%s object at 0x%x>" % (str(type(self.parent_db)).split('\'')[1], id(self.parent_db)) ]
+      _str += [ "\'list\': %s" % str(self.list) ]
+      _str += [ "\'num\': %d" % self.num ]
+      _str = '{ ' + ', '.join(_str) + ' }'
+      return _str
 
     def __str__(self):
       _str = [ "\'type\': \'%s\'" % self.type ]
-      _str += [ "\'list\': \'%s\'" % ("..." if self.list else "") ]
+      _str += [ "\'parent_db\': <%s %s>" % (str(type(self.parent_db)).split('\'')[1], self.parent_db.name) ]
+      _str += [ "\'list\': %s" % ("..." if self.list else "") ]
       _str += [ "\'num\': %d" % self.num ]
       _str = '{ ' + ', '.join(_str) + ' }'
       return _str
@@ -614,21 +619,48 @@ class DB:
       return iter(self.list)
 
     def cat(self, search_key):
-      print("db_list cat %s" % self.type)
-      pdb.set_trace()
-      #super().cat(search_key)
-      #for 
-      #anno_info = super().anno_info
-      #if self.type == 'img':
-      #  anno_info
+      #pdb.set_trace()
+      pd = self.parent_db
+      cat_idx = 0
       if type(search_key) == str:
-        #find key
-        pass
+        # find key index
+        for c in pd['cate'].list:
+          if search_key == c['name']:
+            cat_idx = c['id']
       elif type(search_key) == int:
-        #find cat index
-        pass
-      pass
-      #return self.anno? img?
+        cat_idx = search_key
+      else:
+        print("** Wrong input for cat() -> return None **")
+        return None
+      if cat_idx == 0 or cat_idx > pd['cate'].num:
+        return ""
+      #img_id_list = []
+      res = []
+      if self.type == 'anno':
+        for an in self.list:
+          if an['category_id'] == cat_idx:
+            res.append(an)
+      elif self.type == 'img':
+        img_id_set = set()
+        for an in pd['anno'].list:
+          if an['category_id'] == cat_idx:
+            img_id_set.add(an['image_id'])
+        img_id_list = list(img_id_set)
+        img_id_list.sort()
+        for img_id in img_id_list:
+          for im in self.list:
+            if im['id'] == img_id:
+              res.append(im)
+              break
+      elif self.type == 'cate':
+        for ct in self.list:
+          if ct['id'] == cat_idx:
+            res.append(ct)
+      else:
+        print("** no match db_list type for cat() -> abort **")
+        exit(0)
+      #pdb.set_trace()
+      return pd.db_list(pd, self.type, res)
 
 class DB_viewer:
   def __init__(self, tsr_table = None):
@@ -672,8 +704,18 @@ class DB_viewer:
     print("************************************************")
     pdb.set_trace()
     #do sth print
-    #db.cat(0)
-    db.p[0].t[0]['img'].cat(0)
+    print("db['cate'].__repr__()")
+    print(db['cate'].__repr__())
+    print()
+    for i in range(1,db['cate'].num +1):
+      for t in db.cat(i):
+        print(t)
+      #print(db['img'].cat(i))
+      #print(db['anno'].cat(i))
+    #db.p[0].t[0]['cate'].cat(0)
+    #db.p[0].t[0]['cate'].cat(1)
+    #db.p[0].t[0]['img'].cat(0)
+    pdb.set_trace()
     pass
 
   def img_list():
