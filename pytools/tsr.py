@@ -98,18 +98,20 @@ class Task(Project):
       self.shortname = ''
       self.image_loc = Path()
       self.image_files = []
-      self.anno_file = ''
+      self.anno_files = []
+      #self.anno_file = ''
       self.num_image = 0
     else:
       raise TypeError('Wrong initialization of Class \'Task\'')
 
   def __repr__(self):
-    return "{name: %s, shortname: %s, path: %s, # of images: %d, image_location: %s, anno_file: %s}" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
+    return "{name: %s, shortname: %s, path: %s, # of images: %d, image_location: %s, anno_files: %s}" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
 
   def init_from_dict(self, t_dic):
     # initialize from dictionary
     try:
-      self.anno_file = t_dic['anno_file']
+      #self.anno_file = t_dic['anno_file']
+      self.anno_files = t_dic['anno_files']
       self.image_files = t_dic['image_files']
       self.image_loc = Path(t_dic['image_loc'])
       self.name = t_dic['name']
@@ -131,11 +133,12 @@ class Task(Project):
     #              └── *.jpg, jpeg, png, bmp
     self.path = t_path
     self.name = t_path.name
-    _anno_files = list(t_path.rglob('instances_default.json'))
-    _anno_file = _anno_files[0]
-    if len(_anno_files) > 1:
-      print("** There are serveral annotation files more than 1 in a single Task **")
-      pdb.set_trace()
+    _anno_files = list(t_path.rglob('instances_*.json'))
+    #_anno_file = _anno_files[0]
+    #if len(_anno_files) > 1:
+    #  print("** There are serveral annotation files more than 1 in a single Task **")
+    #  # TODO - when devide dataset as train/test, two different annotation files and image directory will be exist in a single Task
+    #  pdb.set_trace()
 
     _image_files_all = []
     _image_loc = []
@@ -167,7 +170,7 @@ class Task(Project):
     _name = _name.replace('-','_').replace('/', '-')
 
     self.shortname = _name
-    self.anno_file = _anno_file
+    self.anno_files = _anno_files
     self.image_loc = _image_loc
     self.image_files = _image_files_all
     self.num_image = len(self.image_files)
