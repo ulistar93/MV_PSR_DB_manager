@@ -119,7 +119,8 @@ class Task(Project):
       self.path = t_dic['path']
       self.shortname = t_dic['shortname']
     except:
-      print('input dict key doesn\'t match with Task class')
+      print('** input dict key doesn\'t match with Task class **')
+      pdb.set_trace() # TODO - 아직 anno_file's'로 안만들어서 이름 못찾음 -> 전부 수정 필요
       exit(0)
 
   def init_from_path(self, t_path):
