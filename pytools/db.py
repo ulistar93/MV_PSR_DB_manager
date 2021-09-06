@@ -1,11 +1,39 @@
 # db.py
 
 import json
+import pandas as pd
+import numpy as np
+import pickle
 from pathlib import Path
 import pdb
 
 class DB:
-  # db, db.p[i], db.p[i].t[j]
+  def __init__(self, _sdir):
+    self.sdir = _sdir
+    self.anno_df, self.img_df = self.read_dir()
+
+  def read_dir(self):
+    an_df = pd.DataFrame()
+    im_df = pd.DataFrame()
+    p = Path(_sdir)
+    anno_flist = list(p.rglob('instances_*.json'))
+    img_dlist = []
+    for anno_file in anno_flist:
+      for anno_file_p01 if list(anno_file.parents())[:2]:
+        if '/images' in list(anno_file_p01.iterdir()):
+          img_dir = anno_file_p01 / 'images'
+          if not img_dir.is_dir():
+            img_dir = ''
+  ###########################################
+  ## TODO - HERE 2021.09.06
+  ###########################################
+
+  def __repr__(self):
+    return self.img_df
+
+#################################
+## old ##
+
   def __init__(self, tsr_o, parent_level=0):
     if parent_level == 0:
       self.level = parent_level + 1

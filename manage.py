@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+#############
+# manage.py 
+# check arguments and run the commands #
+#############
+
 import os
 import sys
 import argparse
@@ -46,8 +51,9 @@ if __name__ == "__main__":
       else:
         print("** tdir is not decided -> abort **")
         exit(0)
-    ntsr = cmds.migrate(args.sdir, args.tdir)
-    if ntsr == None:
+    s_db = db(args.sdir)
+    t_db = cmds.migrate(s_db, args.tdir)
+    if t_db == None:
       print("** the migration ended abnormally, please refer the error code **")
       exit(0)
   ###############################################
