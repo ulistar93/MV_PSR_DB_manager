@@ -53,8 +53,9 @@ if __name__ == "__main__":
       else:
         print("** tdir is not decided -> abort **")
         exit(0)
-    s_db = db(args.sdir)
-    t_db = cmds.migrate(args.sdir, args.tdir, tv_ratio=args.ratio, renameTF= (not args.no_rename) )
+    s_db = db.DB(args.sdir)
+    pdb.set_trace()
+    t_db = cmds.migrate(s_db, args.tdir, tv_ratio=args.ratio, renameTF= (not args.no_rename) )
     if t_db == None:
       print("** the migration ended abnormally, please refer the error code **")
       exit(0)
