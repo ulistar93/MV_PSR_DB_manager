@@ -23,6 +23,8 @@ if __name__ == "__main__":
   parser.add_argument('-t','--tdir', metavar='PATH', type=str, help="target directory")
   parser.add_argument('-i','--include', metavar='LABEL', type=str, nargs='+', help="including conditions for filtering. divide as space")
   parser.add_argument('-x','--exclude', metavar='LABEL', type=str, nargs='+', help="excluding conditions for filtering. divide as space")
+  parser.add_argument('-r','--ratio', metavar='FLOAT', type=float, default=1.0, help="train/validation ratio [0,1]; 1 = all training, 0 = all validation")
+  parser.add_argument('-n','--no_rename', action='store_true', help="do not rename image files when migration, default: False")
 
   args = parser.parse_args()
 #  print(args.accumulate(args.integers))
@@ -46,7 +48,7 @@ if __name__ == "__main__":
       else:
         print("** tdir is not decided -> abort **")
         exit(0)
-    ntsr = cmds.migrate(args.sdir, args.tdir)
+    ntsr = cmds.migrate(args.sdir, args.tdir, tv_ratio=args.ratio, renameTF= (not args.no_rename) )
     if ntsr == None:
       print("** the migration ended abnormally, please refer the error code **")
       exit(0)
