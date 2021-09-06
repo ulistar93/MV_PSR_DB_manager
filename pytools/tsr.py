@@ -96,7 +96,8 @@ class Task(Project):
       self.path = ''
       self.name = ''
       self.shortname = ''
-      self.image_loc = Path()
+      #self.image_loc = Path()
+      self.image_locs = []
       self.image_files = []
       self.anno_files = []
       #self.anno_file = ''
@@ -105,7 +106,7 @@ class Task(Project):
       raise TypeError('Wrong initialization of Class \'Task\'')
 
   def __repr__(self):
-    return "{name: %s, shortname: %s, path: %s, # of images: %d, image_location: %s, anno_files: %s}" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_loc),str(self.anno_file))
+    return "{name: %s, shortname: %s, path: %s, # of images: %d, image_location: %s, anno_files: %s}" % (self.name,self.shortname,str(self.path),len(self.image_files),str(self.image_locs),str(self.anno_files))
 
   def init_from_dict(self, t_dic):
     # initialize from dictionary
@@ -113,7 +114,8 @@ class Task(Project):
       #self.anno_file = t_dic['anno_file']
       self.anno_files = t_dic['anno_files']
       self.image_files = t_dic['image_files']
-      self.image_loc = Path(t_dic['image_loc'])
+      #self.image_loc = Path(t_dic['image_loc'])
+      self.image_locs = t_dic['image_locs']
       self.name = t_dic['name']
       self.num_image = t_dic['num_image']
       self.path = t_dic['path']
@@ -142,27 +144,32 @@ class Task(Project):
     #  pdb.set_trace()
 
     _image_files_all = []
-    _image_loc = []
+    #_image_loc = []
+    _image_locs = []
     image_format_support = ['jpg', 'jpeg', 'png', 'bmp']
     for img_fmt in image_format_support:
       _image_files = list(t_path.rglob('*.'+img_fmt))
       _image_files.sort()
       for i in _image_files:
-        if i.parent in _image_loc:
+        if i.parent in _image_locs:
           pass
         else:
-          _image_loc.append(i.parent)
+          _image_locs.append(i.parent)
       _image_files_all += _image_files
-    if len(_image_loc) > 1:
-      print("** There are serveral separated image folders in a single Task **")
-      print("** Image files' name will be changed as follow the first folder name **")
-      pdb.set_trace()
-    else:
-      _image_loc = _image_loc[0]
+    #if len(_image_locs) > 1:
+    #  print("** There are serveral separated image folders in a single Task **")
+    #  print("** Image files' name will be changed as follow the first folder name **")
+    #  pdb.set_trace()
+    #else:
+    #  pdb.set_trace()
+    #  _image_loc = _image_loc[0]
+    _image_loc = _image_locs[0]
 
     _name = str(_image_loc)
     if '/images/' in _name:
       _name = _name.split('/images/')[1]
+      if 'train/' in _name or 'valid/' in _name:
+        _name = '/'.join(_name.split('/')[1:])
     else:
       _name = ""
     # if no subdir in /images, the split()[1] might be empty or invalid
@@ -172,7 +179,7 @@ class Task(Project):
 
     self.shortname = _name
     self.anno_files = _anno_files
-    self.image_loc = _image_loc
+    self.image_locs = _image_locs
     self.image_files = _image_files_all
     self.num_image = len(self.image_files)
 

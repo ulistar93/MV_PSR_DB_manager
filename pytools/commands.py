@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import datetime
+import random
 import shutil
 import pdb
 
@@ -52,48 +53,6 @@ def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
       res_dict[s_id] = t_id
       info_list.append({"name":_name, "id_change":"%d->%d"%(s_id, t_id)})
     return res_dict, info_list
-
-  total_num_img = 0
-  for p in tsr_table.plist:
-    for t in p.task_list:
-      total_num_img += len(t["num_image"])
-
-  def static_vars(**kwargs):
-    def decorate(func):
-      for k in kwargs:
-        setattr(func,k,kwargs[k])
-      return func
-    return decorate
-  _t_tickets = int(p*total_num_img)
-  _f_tickets = total_num_img - _t_tickets
-
-  # p would be same to True ratio of returns
-  @static_vars(p=tv_ratio,t_tickets=_t_tickets, f_tickets=_f_tickets)
-  def tv_ratio_devider():
-    '''
-    return True if Training
-           False if Validation
-    * Caution * before to use please set attribute "t_tickets" and "f_tickets"
-    '''
-    if (tv_ratio_devider.t_tickets + tv_ratio_devider.f_tickets) == 0:
-      raise ValueError("tv_ratio_devider sold out all tickets")
-      pdb.set_trace()
-    elif tv_ratio_devider.t_tickets == 0:
-      tv_ratio_devider.f_tickets -= 1
-      return False
-    elif tv_ratio_devider.f_tickets == 0:
-      tv_ratio_devider.t_tickets -= 1
-      return True
-    elif random.random() <= p:
-      tv_ratio_devider.t_tickets -= 1
-      return True
-    else:
-      tv_ratio_devider.f_tickets -= 1
-      return False
-
-  #def tv_selective_devider(key):
-    # TODO - This might be need in case when we want to select some folders as validation
-    # for example, "Kaggle" or "Chile" can be validation set and others as Training
 
   #######################
   # 
@@ -196,53 +155,47 @@ def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
               _img['img'] = {}
               _img['ans'] = []
               _img['new_name'] = ''
+              _img['new_cat'] = cat_map[an['category_id']]
               for c in t_img_copy_list:
                 if an['image_id'] == c['img']['id']:
                   _img = c
                   break
-              if not _img: # _img is empty
+              if not _img['img']: # _img is empty
                 for im in anno['images']:
                   if im['id'] == an['image_id']:
                     _img['img'] = im
                     break
               _img['ans'].append(an)
-              _img['new_name'] = t.shortname + '_' + str(t_lid) if renameTF == True else ''
+              #_img['org_file'] = t.image_loc / _img['img']['file_name']
+              _img['org_file'] = t.image_locs[0] / _img['img']['file_name'].split('/')[-1]
+              ##########################################
+              ## TODO - HERE 2021.09.06
+              ## _img should know where it was...but no infomation holds now...
+              ##########################################
+              _org_name = _img['org_file'].name
+              _org_format = '.' + _org_name.split('.')[-1]
+              #_img['new_name'] = t.shortname + '_' + str(t_lid) + _org_format if (renameTF == True or t.shortname =='') else _org_name
+              if renameTF:
+                if t.shortname == '':
+                  _img['new_name'] = str(t_lid) + _org_format
+                else:
+                  _img['new_name'] = t.shortname + '_' + str(t_lid) + _org_format
+              else:
+                _img['new_name'] = _org_name
               t_lid += 1
+              _img['task_name'] = t.name
+              #t_mig_info['img_map'].append(str(_img['org_file']))
+              #_img['t_mig_info_img_map'] = t_mig_info['img_map']
               t_img_copy_list.append(_img)
             else: # if not include (=exclude)
               pass
         # close anno file
       # end of annos loop
-      for c in t_img_copy_list:
-        t_mig_info['img_map'].append()
-        c['img']['file_name']
-      t_mig_info['img_map'] = t_img_copy_list # change dict and string later
-      # 얘가 여기서 data를 다 가지고 있을 이유가 있나?
-      # 나중에 str로 변환하긴할건데...
-      # 얘는 mig info str만 있으면 되긴하는데...train/valid 여부를 아직 모르긴한데...
-      # 언제 어떻게 고치지?
       img_copy_list += t_img_copy_list
-      # 얘가 실제로 shutil.copy할때 사용할 거고
-      # 얘가 가진 갯수 = 실제로 copy할 갯수 = 이걸 기반으로 devide하면됨
       p_mig_info['task_info'].append(t_mig_info)
     # end of task loop
     migration_info['project_info'].append(p_mig_info)
   # end of project loop
-
-
-
-
-
-
-
-  ##############################################
-  ######### TODO - HERE 2021.09.03 #############
-  ##############################################
-
-
-
-
-
 
   #########################
   # 3) mapping org to target dir <- apply devider
@@ -256,241 +209,134 @@ def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
   tp_image_val = tp_image / "valid"
   tp_image_trn.mkdir(parents=True, exist_ok=True)
   tp_image_val.mkdir(parents=True, exist_ok=True)
-
-  # train data ratio per the whole dataset
-
-  #########################
-  # 3-2) set migration info
-  #########################
-
-
-  #########################
-  # 4) real copy file
-  #########################
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  # 2) copy data at target directory
-  # set target dir(path) names#
-
-  org_img_copy_list = []
-  #new_anno_json = {'images':[],
   new_trn_anno_json = {'images':[],
-                       'annotaions':[],
+                       'annotations':[],
                        'categories':[],
                        'licenses':[],
                        'info':{}
                        }
   new_val_anno_json = {'images':[],
-                       'annotaions':[],
+                       'annotations':[],
                        'categories':[],
                        'licenses':[],
                        'info':{}
                        }
-  #new_val_anno_json['images'] = []
-  #new_val_anno_json['annotations'] = []
-  #new_val_anno_json = {'images':[], 'annotations':[]}
 
-  gid = 0
-  g_anno_id = 0
-  # for project
-  #   for task
-  #     0) categories check
-  #     1) do migration (copy images)
-  #     2) make other annotation detail
-  # vs
-  #     0) categories check
-  #     1) read dir & make migration list
-  #     2) do migration (copy images)
-  #     3) make other annotation detail
-  all_migration_info = {} # {project{task[cat_id_map, img_id_map]}}
-  all_migration_info['project_info'] = []
-  #####################################################################
-  ## project loop ##
-  ##################
-  for p in tsr_table.plist:
-    project_mapping_info = {}
-    project_mapping_info['name'] = p.name
-    project_mapping_info['task_info'] = []
-    print(" project %s start" % p.name)
-    ###################################################################
-    ## task loop ##
-    ###############
-    for t in p.task_list:
-      print("  task %s start" % t.name)
-      task_mapping_info = {}
-      task_mapping_info['org_task_name'] = t.name
-      #task_mapping_info['cat_id_map'] = []
-      #task_mapping_info['img_id_map'] = []
-      task_mapping_info['cat_map'] = []
-      task_mapping_info['img_map'] = []
-      # anno_file(instances_default.json) read
-      ###################################################################
-      ## anno file loop ##
-      ####################
-      # load annotation files and read img & anno info
-      # and set the target info
-      for anno_file in t.anno_files:
-        with open(anno_file, 'r') as f:
-          anno = json.load(f)
+  total_num_img_copy = len(img_copy_list)
+  tv_ticket = []
+  if tv_ratio == 1:
+    # no valid
+    tv_ticket = [True] * total_num_img_copy
+  elif tv_ratio == 0:
+    # no train
+    tv_ticket = [False] * total_num_img_copy
+  else:
+    #tv_ticket = random_ticket(total_num_img_copy, tv_ratio)
+    tv_ticket_idx = list(range(total_num_img_copy)) # 0 ~ n-1
+    random.shuffle(tv_ticket_idx)
+    #tv_ticket = [ True for x in tv_ticket_idx if x <= (tv_ratio * (total_num_img_copy -1)) else False ]
+    tv_ticket = [ True if x <= (tv_ratio * (total_num_img_copy -1)) else False for x in tv_ticket_idx ]
+    #  train   val
+    # |<----->|<->|
+    # 0       |  n-1
+    #         x = (n-1)*r
+    # so that,
+    # (n-1)*r : (n-1) - (n-1)r
+    # = r : 1-r
 
-          # 0) category check
-          #if not bool(common_cat):
-          #  common_cat = anno['categories']
-          # do comparision, return anno's cat's id -> common cat's id dict
-          cat_map, task_mapping_info['cat_map'] = categories_cmp(common_cat, anno['categories'])
-          if cat_map == None:
-            print("* categories_cmp ends with error *")
-            print("** aborted **")
-            exit(0)
-          #print("  cat_map:", cat_map)
-          # make categories # do later at end of project loop
+  #assert len(tv_ticket) == len(img_copy_list)
+  for tv, _img in zip(tv_ticket, img_copy_list):
+    if tv: # if train
+      _img['new_file'] = tp_image_trn / _img['new_name']
+      _img['new_anno_json'] = new_trn_anno_json
+    else: # if valid
+      _img['new_file'] = tp_image_val / _img['new_name']
+      _img['new_anno_json'] = new_val_anno_json
+    #########################
+    # 3-2) set migration info
+    #      TODO - external loop & without list pointer in _img
+    #########################
+    #for c in _img['t_mig_info_img_map']:
+    #  if c == _img['org_file']:
+    #    c = c + ' -> ' + str(_img['new_file'])
+    #    break
 
-          # 0-1) extractor remove no labeling image
-          img_copy_list_id = set()
-          for an in anno['annotations']:
-            if cat_map[an['category_id']] != 0:
-              img_copy_list_id.add(an['image_id'])
+  #########################
+  # 4) real copy file
+  #########################
 
-          # 1) image copy
-          #    include copy & rename
-          lid = 0
-          img_id_map = {}
-          ################
-          ## image loop ##
-          ################
-          for img in anno['images']:
-            if img['id'] not in img_copy_list_id:
-              continue
-            # img file copy
-            org_name = img['file_name'].split('/')[-1]
-            org_file = t.image_loc / org_name
-            file_format = img['file_name'].split('.')[-1]
-            new_name = org_name if (renameTF == False) or (t.shortname == '') else t.shortname + '_' + str(lid) + '.' + file_format
-            # when renameTF = False -> org_name
-            # when renameTF = True, but they have no new shortname -> org_name
-            # else rename
-            #new_file = tp_image_trn / new_name if tv_ratio_devider() else tp_image_val / new_name
-            _img_org = {}
-            _img_org['org_file'] = org_file
-            _img_org['new_name'] = new_name
-            _img_org['gid'] = new_name
-            org_img_copy_list.append(_img_map_info)
-            #try:
-            #  shutil.copyfile(org_file, new_file)
-            #except:
-            #  print("** shutil.copy sth wrong **")
-            #  pdb.set_trace()
-            _info_str = str(org_file) + ' -> ' + str(new_file)
-            task_mapping_info['img_id_map'].append(_info_str)
-            print("  cp", _info_str)
-
-            # id matching # will be used for annotations['image_id']
-            org_id = img['id']
-            new_id = gid
-            img_id_map[org_id] = new_id
-            task_mapping_info['img_id_map'] = img_id_map
-
-            if 'train' in new_file:
-              new_anno_json = new_trn_anno_json
-            elif 'valid' in new_file:
-              new_anno_json = new_val_anno_json
-            new_anno_json['images'].append({ "id": gid,
-                                            "width": img["width"],
-                                            "height": img["height"],
-                                            "license": img["license"],
-                                            #"file_name": tp_pj_task_name+'/images/'+new_name,
-                                            "file_name": str(new_file),
-                                            "flickr_url": img["flickr_url"],
-                                            "coco_url": img["coco_url"],
-                                            "date_captured": img["date_captured"]
+  g_anno_id = 1
+  for i, _img in enumerate(img_copy_list):
+    _org_file = _img['org_file']
+    _new_file = _img['new_file']
+    _task_info_imgmap = []
+    for p_mig_info in migration_info['project_info']:
+      for t_mig_info in p_mig_info['task_info']:
+        if t_mig_info['org_task_name'] == _img['task_name']:
+          _task_info_imgmap = t_mig_info['img_map']
+    try:
+      _info_str = str(_org_file) + " -> " + str(_new_file)
+      _task_info_imgmap.append(_info_str)
+      print("  cp", _info_str )
+      shutil.copyfile(_org_file, _new_file)
+    except:
+      print("** shutil.copy sth wrong **")
+      pdb.set_trace()
+    _img['new_anno_json']['images'].append({ "id": i+1,
+                                            "width": _img['img']["width"],
+                                            "height": _img['img']["height"],
+                                            #"license": _img['img']["license"],
+                                            "license": 0,
+                                            "file_name": str(_img['new_file']),
+                                            "flickr_url": _img['img']["flickr_url"],
+                                            "coco_url": _img['img']["coco_url"],
+                                            "date_captured": _img['img']["date_captured"]
                                             })
-            gid += 1
-            lid += 1
+    for an in _img['ans']:
+      _img['new_anno_json']['annotations'].append({"id": g_anno_id,
+                                                 "image_id": i+1,
+                                                 "category_id": _img['new_cat'],
+                                                 "segmentation": an['segmentation'],
+                                                 "area": an['area'],
+                                                 "bbox": an['bbox'],
+                                                 "iscrowd": an['iscrowd'],
+                                                 "attributes": an['attributes']
+                                                 })
+      g_anno_id += 1
 
-          print("  anno[\'annoatation\'] start")
-          # 2) make annotations detail
-          for an in anno['annotations']:
-            if cat_id_map[an['category_id']] != 0:
-              new_anno_json['annotations'].append({"id": g_anno_id,
-                                                   "image_id": img_id_map[an['image_id']],
-                                                   "category_id": cat_id_map[an['category_id']],
-                                                   "segmentation": an['segmentation'],
-                                                   "area": an['area'],
-                                                   "bbox": an['bbox'],
-                                                   "iscrowd": an['iscrowd'],
-                                                   "attributes": an['attributes']
-                                                   })
-              g_anno_id += 1
-          print("  anno[\'annoatation\'] done")
-          #pdb.set_trace()
-          # TODO(changmin): supercategory = ''
-        project_mapping_info['task_info'].append(task_mapping_info)
-      # end for anno_files:
-    # end for task_list:
-    all_migration_info['project_info'].append(project_mapping_info)
-  # end for tsr_table.plist:
+  # TODO - dummy info fill
+  new_trn_anno_json['categories'] = common_cat
+  new_val_anno_json['categories'] = common_cat
+  new_trn_anno_json['licenses'] = [{"name":"",
+                                    "id": 0,
+                                    "url":""
+                                    }]
+  new_val_anno_json['licenses'] = new_trn_anno_json['licenses']
+  new_trn_anno_json['info'] = {"contributor":"",
+                               "date_created": datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'),
+                               "description": "",
+                               "url": "",
+                               "version": "",
+                               "year": datetime.datetime.now().strftime('%Y')
+                               }
+  new_val_anno_json['info'] = new_trn_anno_json['info']
+  print("[%s] anno json saving" % datetime.datetime.now().strftime('%H:%M:%S'))
 
-  # devide train/valid 
-  for a in org_img_copy_list:
-    a['org_file']
-    a['new_name']
-    tv_ratio_devider()
-    if t
-  for p in tsr_table.plist:
-    for t in p.task_list:
-      task_mapping_info['cat_map'] = []
-      task_mapping_info['img_map'] = []
-      t
+  pdb.set_trace()
+  trn_anno_file = tp_anno / "instances_train.json"
+  val_anno_file = tp_anno / "instances_valid.json"
+  if new_trn_anno_json['images']: # if not empty
+    with open(trn_anno_file, 'w') as f:
+      json.dump(new_trn_anno_json, f, sort_keys=True)
+  if new_val_anno_json['images']: # if not empty
+    with open(val_anno_file, 'w') as f:
+      json.dump(new_val_anno_json, f, sort_keys=True)
 
-
+  pdb.set_trace()
   tp_info = tp / "migration_info.json"
   with open(tp_info, 'w') as f:
-    json.dump(all_migration_info, f, ensure_ascii=False, sort_keys=True, indent=4)
+    json.dump(migration_info, f, ensure_ascii=False, sort_keys=True, indent=4)
 
-  # 4) make other details of new annotation json file
-  # new_anno_json['images'] = done
-  # new_anno_json['annotations'] = done
-  new_anno_json['categories'] = common_cat
-  new_anno_json['licenses'] = [{"name":"",
-                                "id": 0,
-                                "url":""
-                                }]
-  new_anno_json['info'] = {"contributor":"",
-                           "date_created": datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'),
-                           "description": "",
-                           "url": "",
-                           "version": "",
-                           "year": datetime.datetime.now().strftime('%Y')
-                           }
-  print("[%s] anno json saving" % datetime.datetime.now().strftime('%H:%M:%S'))
-  # TODO
-  # dummy info fill
-  # license stacking
-  #tp_anno_file = tp_anno / "instances_default.json"
-  trn_anno_file = tp_anno / "instances_trainTSR.json" # TODO
-  val_anno_file = tp_anno / "instances_valTSR.json" # TODO devide train/val annotations
-  with open(tp_anno_file, 'w') as f:
-    json.dump(new_anno_json, f, sort_keys=True)
   print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
   #make new tsr
   print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
