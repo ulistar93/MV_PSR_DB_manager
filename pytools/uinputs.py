@@ -26,19 +26,22 @@ def yntest(message, default):
       print("** There is wrong input. Please retry **")
     redo_msg = 're: '
 
-def txtest(message, default):
+def txtest(message, default_txt):
   '''
     message : display text
     default : return when in '' (empty string)
     return : input text list
   '''
   redo_msg = ''
+  default = default_txt.split('[default=')[1][:-1]
   while True:
-    ans = input(redo_msg + message + ': ')
-    if ans == '':
+    ans = input(redo_msg + message + default_txt + ' :')
+    if ans != '':
+      return ans
+    elif default != '': # ans == ''
       return default
-    else:
-      return ans.split(' ')
+    else: # ans == '' and default == ''
+      print("** Default is empty. Please retry **")
     redo_msg = 're: '
 
 def Input(ftype, message, default):

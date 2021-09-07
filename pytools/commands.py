@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import pandas as pd
 import datetime
 import random
 import shutil
@@ -9,10 +10,15 @@ import pdb
 
 from pytools.uinputs import Input
 from pytools import tsr
-#from pytools import db
+from pytools import db
 
-def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
+#def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
+#def migrate(s_db, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
+def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   '''
+  - TODO -
+  migrate(s_db, t_dir):
+  - OLD -
   migrate(s_dir, t_dir):
     :return: new_tsr
     migrate dataset from source dir to target dir
@@ -72,7 +78,7 @@ def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
   tp = Path(t_dir)
   if not tp.exists():
     print("* t_dir %s is not exist -> make a new dir *" % t_dir)
-    tp.mkdir()
+    tp.mkdir(parents=True, exist_ok=True)
     pass
   elif not tp.is_dir():
     print("** t_dir %s exist but not a dir -> abort **" % t_dir)
@@ -83,120 +89,31 @@ def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
       return None
     else: # continue
       shutil.rmtree(tp)
-      tp.mkdir()
+      tp.mkdir(parents=True, exist_ok=True)
       pass
-  # s_dir exist check
-  sp = Path(s_dir)
-  if not sp.exists():
-    print("** the s_dir %s is not exist -> abort **" % s_dir)
-    return None
 
   #########################
-  # 1) read org data (s_dir)
+  # 1) read org data -> s_db
   #########################
-  # s_dir tsr_table check
-  print("[%s] s_dir table file check" % datetime.datetime.now().strftime('%H:%M:%S'))
-  st_json = Path(s_dir) / "db_table.json"
-  if st_json.exists():
-    # load
-    print("* s_dir db_table.json file already exist -> load db_table.json *")
-    with open(st_json, 'r') as f:
-      tsr_table_json = json.load(f) # load tsr json
-    tsr_table = tsr.TSR(tsr_table_json) # make tsr class from json
-  else:
-    # create
-    print("* s_dir db_table.json file is not exist -> make new TSR & save json")
-    tsr_table = tsr.TSR(Path(s_dir))
-    with open(st_json, 'w') as f:
-      json.dump(tsr_table, f, indent=4, default=tsr.json_encoder, ensure_ascii=False, sort_keys=True) #save json
-  print("[%s] do copy and gen tdir" % datetime.datetime.now().strftime('%H:%M:%S'))
-  print("[%s] %d Project / %d tasks in sdir" % (datetime.datetime.now().strftime('%H:%M:%S'),len(tsr_table.plist), sum(list(len(p.task_list) for p in tsr_table.plist))))
 
   #########################
   # 2) make copy candidate list <- apply extractor
   #########################
-  if extractor == None:
-    extractor = lambda x : True
+  #if extractor == None:
+  #  extractor = lambda x : True
 
-  common_cat = []
-  img_copy_list = []
-  migration_info = {} # {project{task[cat_id_map, img_id_map]}}
-  migration_info['project_info'] = []
-  for p in tsr_table.plist:
-    p_mig_info = {}
-    p_mig_info['name'] = p.name
-    p_mig_info['task_info'] = []
+  ex_db = s_db.copy()
+  for ext in extractors:
+    ex_db.extract(ext)
 
-    for t in p.task_list:
-      t_mig_info = {}
-      t_mig_info['org_task_name'] = t.name
-      t_mig_info['cat_map'] = []
-      t_mig_info['img_map'] = []
+##############################################
+## TODO - HERE 
+## 3) make a plan to copy by using ex_db
+##    include train/valid devider
+##############################################
 
-      t_img_copy_list = []
-      t_lid = 0 # for renaming
-      for anno_file in t.anno_files:
-        with open(anno_file, 'r') as f:
-          anno = json.load(f)
-          cat_map, t_mig_info['cat_map'] = categories_cmp(common_cat, anno['categories'], extractor)
-          # cat_map = dict{ (int)old_id : (int)new_id }
-          # t_mig_info['cat_map'] = dict{ "name":"category name", "id_change":"old_id -> new_id" }
-          # extractor -> the cat which do not include(=exclude) will be mapped to 0 as new_id
-          if cat_map == None:
-            print("* categories_cmp ends with error *")
-            print("** aborted **")
-            exit(0)
-          #print("  cat_map:", cat_map)
-
-          for an in anno['annotations']:
-            if cat_map[an['category_id']] != 0: # include
-              # check copy list
-              _img = {}
-              _img['img'] = {}
-              _img['ans'] = []
-              _img['new_name'] = ''
-              _img['new_cat'] = cat_map[an['category_id']]
-              for c in t_img_copy_list:
-                if an['image_id'] == c['img']['id']:
-                  _img = c
-                  break
-              if not _img['img']: # _img is empty
-                for im in anno['images']:
-                  if im['id'] == an['image_id']:
-                    _img['img'] = im
-                    break
-              _img['ans'].append(an)
-              #_img['org_file'] = t.image_loc / _img['img']['file_name']
-              _img['org_file'] = t.image_locs[0] / _img['img']['file_name'].split('/')[-1]
-              ##########################################
-              ## TODO - HERE 2021.09.06
-              ## _img should know where it was...but no infomation holds now...
-              ##########################################
-              _org_name = _img['org_file'].name
-              _org_format = '.' + _org_name.split('.')[-1]
-              #_img['new_name'] = t.shortname + '_' + str(t_lid) + _org_format if (renameTF == True or t.shortname =='') else _org_name
-              if renameTF:
-                if t.shortname == '':
-                  _img['new_name'] = str(t_lid) + _org_format
-                else:
-                  _img['new_name'] = t.shortname + '_' + str(t_lid) + _org_format
-              else:
-                _img['new_name'] = _org_name
-              t_lid += 1
-              _img['task_name'] = t.name
-              #t_mig_info['img_map'].append(str(_img['org_file']))
-              #_img['t_mig_info_img_map'] = t_mig_info['img_map']
-              t_img_copy_list.append(_img)
-            else: # if not include (=exclude)
-              pass
-        # close anno file
-      # end of annos loop
-      img_copy_list += t_img_copy_list
-      p_mig_info['task_info'].append(t_mig_info)
-    # end of task loop
-    migration_info['project_info'].append(p_mig_info)
-  # end of project loop
-
+  pdb.set_trace()
+  pass
   #########################
   # 3) mapping org to target dir <- apply devider
   #########################
@@ -358,19 +275,19 @@ def update():
   '''
   pass
 
-def includer(elem):
-  '''
-  includer(elem):
-    :return: lambda
-    elem: the labels which be included
-  '''
-  return lambda x: True if x in elem else False
-
-def excluder(elem):
-  '''
-  excluder(elem):
-    :return: lambda
-    elem: the labels which be excluded
-  '''
-  return lambda x: False if x in elem else True
+#def includer(elem):
+#  '''
+#  includer(elem):
+#    :return: lambda
+#    elem: the labels which be included
+#  '''
+#  return lambda x: True if x in elem else False
+#
+#def excluder(elem):
+#  '''
+#  excluder(elem):
+#    :return: lambda
+#    elem: the labels which be excluded
+#  '''
+#  return lambda x: False if x in elem else True
 
