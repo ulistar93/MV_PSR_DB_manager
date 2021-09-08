@@ -7,6 +7,7 @@ import datetime
 import random
 import shutil
 import pdb
+import re
 
 from pytools.uinputs import Input
 from pytools import tsr
@@ -14,7 +15,7 @@ from pytools import db
 
 #def migrate(s_dir, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
 #def migrate(s_db, t_dir, extractor=None, tv_ratio=1.0, renameTF=True):
-def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
+def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
   '''
   - TODO -
   migrate(s_db, t_dir):
@@ -106,40 +107,59 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   for ext in extractors:
     ex_db.extract(ext)
 
-##############################################
-## TODO - HERE 
-## 3) make a plan to copy by using ex_db
-##    include train/valid devider
-##############################################
+  ####################################
+  # 3) sorting and setting ex_db
+  #    include train/valid devider
+  ####################################
+  # set global id of img_df
+  total_num_img_copy = len(ex_db.img_df)
+  ex_db.img_df['new_id'] = list(range(1,total_num_img_copy+1))
+  #anno_df_new_img_id = pd.DataFrame()
+  anno_df_new_img_id = []
+  for anno_file in ex_db.anno_flist:
+    _an_df_an = ex_db.anno_df[ex_db.anno_df['anno_file'] == anno_file]
+    _im_df_an = ex_db.img_df[ex_db.img_df['anno_file'] == anno_file]
+    #def get_new_img_id(old_img_id):
+    #  return int(_im_df_an[_im_df_an['id']==old_img_id]['new_id'])
+    #_an_df_an['new_img_id'] = _an_df_an['image_id'].map(get_new_img_id)
+    #_an_df_an['new_image_id'] = _an_df_an['image_id'].map(lambda x : int(_im_df_an[_im_df_an['id']==x]['new_id']))
+    #anno_df_new_img_id = anno_df_new_img_id.append(_an_df_an)
+    anno_df_new_img_id += list(_an_df_an['image_id'].map(lambda x : int(_im_df_an[_im_df_an['id']==x]['new_id'])))
+  #ex_db.anno_df = anno_df_new_img_id
+  ex_db.anno_df['new_image_id'] = anno_df_new_img_id
 
-  pdb.set_trace()
-  pass
-  #########################
-  # 3) mapping org to target dir <- apply devider
-  #########################
-  #tp = Path(t_dir) #done above
-  tp_pj_task_name = "project_0/task_0"
-  tp_anno = tp / tp_pj_task_name / "annotations"
-  tp_anno.mkdir(parents=True)
-  tp_image = tp / tp_pj_task_name / "images"
-  tp_image_trn = tp_image / "train"
-  tp_image_val = tp_image / "valid"
-  tp_image_trn.mkdir(parents=True, exist_ok=True)
-  tp_image_val.mkdir(parents=True, exist_ok=True)
-  new_trn_anno_json = {'images':[],
-                       'annotations':[],
-                       'categories':[],
-                       'licenses':[],
-                       'info':{}
-                       }
-  new_val_anno_json = {'images':[],
-                       'annotations':[],
-                       'categories':[],
-                       'licenses':[],
-                       'info':{}
-                       }
+  # ex_db.cat_df reducing -> make common_cat
+  common_cat = []
+  common_cat_map = {}
+  for idx, ct in ex_db.cat_df.iterrows():
+    if ct['name'] not in common_cat_map.keys():
+      cc_id = ct['id']
+      while cc_id in common_cat_map.values():
+        cc_id += 1
+      common_cat_map[ct['name']] = cc_id
+      common_cat.append({"id":cc_id,
+                         "name":ct['name'],
+                         "supercategory":ct['supercategory']
+                         })
+  ex_db.cat_df['common_cat_id'] = ex_db.cat_df['name'].map(lambda x: common_cat_map[x])
 
-  total_num_img_copy = len(img_copy_list)
+  anno_df_common_cat_id = []
+  for anno_file in ex_db.anno_flist:
+    _an_df_an = ex_db.anno_df[ex_db.anno_df['anno_file'] == anno_file]
+    _ct_df_an = ex_db.cat_df[ex_db.cat_df['anno_file'] == anno_file]
+    cc_map = {}
+    for _, c in _ct_df_an.iterrows():
+      cc_map[c['id']] = c['common_cat_id']
+    anno_df_common_cat_id += list(_an_df_an['category_id'].map(lambda x : cc_map[x]))
+  ex_db.anno_df['common_cat_id'] = anno_df_common_cat_id
+
+  #################################################
+  ## memo : new_image_id 를 db.py로 넣으려했는데, 생각해보니 extractor 가 없을 경우 실행이 안될듯
+  ##        여기서 extract 다 끝나고 하는게 맞는듯
+  #################################################
+
+  # train/valid devide
+  #total_num_img_copy = len(ex_db.img_df) #done above
   tv_ticket = []
   if tv_ratio == 1:
     # no valid
@@ -160,6 +180,99 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
     # so that,
     # (n-1)*r : (n-1) - (n-1)r
     # = r : 1-r
+  ex_db.img_df['tv'] = tv_ticket
+  ex_db.anno_df['tv'] = ex_db.anno_df['new_image_id'].map(lambda x : ex_db.img_df[ex_db.img_df['new_id']==x]['tv'].values[0])
+
+  #renameTF = False -> shrinked name
+  #renameTF = True -> numbered name
+  rename_len = len(str(total_num_img_copy)) + 1
+  def rename_img_file_name(df):
+    _fname = df['file_name'].split('.')
+    _name = '_'.join(_fname[:-1])
+    _format = _fname[-1]
+    _new_id = df['new_id']
+    new_name = ''
+    if renameTF:
+      new_name = str(_new_id).zfill(rename_len) + '.' + _format
+    else: #renameTF = False
+      new_name = re.sub('[^a-zA-Z0-9_/\-]','', _name)
+      new_name = new_name.replace('-','_').replace('/', '-') + '.' + _format
+    return new_name
+  ex_db.img_df['new_file_name'] = ex_db.img_df.apply(rename_img_file_name, axis=1)
+
+  #tp = Path(t_dir) #done above
+  tp_pj_task_name = "project_0/task_0"
+  tp_anno = tp / tp_pj_task_name / "annotations"
+  tp_anno.mkdir(parents=True)
+  trn_anno_file = tp_anno / "instances_train.json"
+  val_anno_file = tp_anno / "instances_valid.json"
+
+  tp_image = tp / tp_pj_task_name / "images"
+  tp_image_trn = tp_image / "train"
+  tp_image_val = tp_image / "valid"
+  tp_image_trn.mkdir(parents=True, exist_ok=True)
+  tp_image_val.mkdir(parents=True, exist_ok=True)
+
+  pdb.set_trace()
+  ex_db.img_df['new_anno_file'] = ex_db.img_df['tv'].map(lambda x: trn_anno_file if x == 'train' else val_anno_file )
+  ex_db.anno_df['new_anno_file'] = ex_db.anno_df['tv'].map(lambda x: trn_anno_file if x == 'train' else val_anno_file )
+  pdb.set_trace()
+  # file이름으로 하는게 맞나? json으로 하는게 맞나?
+  def new_full_path(df):
+    _tv = df['tv']
+    _new_name = df['new_file_name']
+    if _tv:
+      return tp_image_trn / _new_name
+    else:
+      return tp_image_val / _new_name
+  ex_db.img_df['new_full_path'] = ex_db.img_df.apply(new_full_path, axis=1)
+  pdb.set_trace()
+
+  new_trn_anno_json = {'images':[],
+                       'annotations':[],
+                       'categories':[],
+                       'licenses':[],
+                       'info':{}
+                       }
+  new_val_anno_json = {'images':[],
+                       'annotations':[],
+                       'categories':[],
+                       'licenses':[],
+                       'info':{}
+                       }
+  new_trn_anno_json['licenses'] = [{"name":"",
+                                    "id": 0,
+                                    "url":""
+                                    }]
+  new_val_anno_json['licenses'] = [{"name":"",
+                                    "id": 0,
+                                    "url":""
+                                    }]
+  time_now = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+  new_trn_anno_json['info'] = {"contributor":"",
+                               "date_created": time_now,
+                               "description": "",
+                               "url": "",
+                               "version": "",
+                               "year": datetime.datetime.now().strftime('%Y')
+                               }
+  new_val_anno_json['info'] = {"contributor":"",
+                               "date_created": time_now,
+                               "description": "",
+                               "url": "",
+                               "version": "",
+                               "year": datetime.datetime.now().strftime('%Y')
+                               }
+  new_trn_anno_json['categories'] = common_cat
+  new_val_anno_json['categories'] = common_cat
+  ################################
+  # TODO - HERE 2021.09.08
+  #       devide dataframe
+  #       make dict for anno_json
+  #       copy img file
+  ################################
+  #trn_img_df = ex_db.img_df[]
+  #new_trn_anno_json['images'] = 
 
   #assert len(tv_ticket) == len(img_copy_list)
   for tv, _img in zip(tv_ticket, img_copy_list):

@@ -137,6 +137,7 @@ class DB:
           #_im_df_an_new = pd.DataFrame()
           _an_df_an_new = pd.DataFrame()
           _ct_df_an_new = pd.DataFrame()
+          # _ct_df_lb = _ct_df_an[_ct_df_an['name'].isin(ext[2:])] # TODO - isin?
           for lb in ext[2:]:
             _ct_df_lb = _ct_df_an[ _ct_df_an['name'] == lb ]
             if _ct_df_lb.empty:
@@ -147,8 +148,10 @@ class DB:
             _an_df_lb = _an_df_an[ _an_df_an['category_id'] == cat_id ]
             _ct_df_an_new = _ct_df_an_new.append(_ct_df_lb)
             _an_df_an_new = _an_df_an_new.append(_an_df_lb)
+          # _an_df_new = _an_df_an[_an_df_an['category_id'].isin(_ct_df_lb['id'])] # TODO - isin?
           in_expr = "id in %s" % str(_an_df_an_new['image_id'].tolist())
           _im_df_an_new = _im_df_an.query(in_expr)
+          # _im_df_new = _im_df_an[_im_df_an['id'].isin(_an_df_new['image_id'])] # TODO - isin?, ~isin?
           update_ct_df = update_ct_df.append(_ct_df_an_new)
           update_an_df = update_an_df.append(_an_df_an_new)
           update_im_df = update_im_df.append(_im_df_an_new)
