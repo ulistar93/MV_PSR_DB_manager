@@ -104,6 +104,9 @@ class DB:
 
   def load_pkl(self, pkl_file):
     #pdb.set_trace()
+    if not Path(pkl_file).exists():
+      print("** There is no named pickle %s -> aborted **"%pkl_file)
+      exit(0)
     with open(pkl_file, 'rb') as f:
       r_db = pickle.load(f)
     assert self.sdir == r_db.sdir

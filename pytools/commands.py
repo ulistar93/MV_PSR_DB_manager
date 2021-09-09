@@ -104,6 +104,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
   #  extractor = lambda x : True
 
   ex_db = s_db.copy()
+  ex_db.sdir = t_dir
   for ext in extractors:
     ex_db.extract(ext)
 
@@ -199,13 +200,13 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
       new_name = new_name.replace('-','_').replace('/', '-') + '.' + _format
     return new_name
   ex_db.img_df['new_file_name'] = ex_db.img_df.apply(rename_img_file_name, axis=1)
+  #ex_db.img_df['new_file_name_only'] = ex_db.img_df.apply(rename_img_file_name, axis=1)
+  #ex_db.img_df['new_file_name'] = ex_db.img_df.apply(lambda x: 'train/'+x['new_file_name_only'] if x.tv else 'valid/'+x['new_file_name_only'], axis=1)
 
   #tp = Path(t_dir) #done above
   tp_pj_task_name = "project_0/task_0"
   tp_anno = tp / tp_pj_task_name / "annotations"
   tp_anno.mkdir(parents=True)
-  trn_anno_file = tp_anno / "instances_train.json"
-  val_anno_file = tp_anno / "instances_valid.json"
 
   tp_image = tp / tp_pj_task_name / "images"
   tp_image_trn = tp_image / "train"
@@ -214,13 +215,10 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
   tp_image_val.mkdir(parents=True, exist_ok=True)
 
   pdb.set_trace()
-  ex_db.img_df['new_anno_file'] = ex_db.img_df['tv'].map(lambda x: trn_anno_file if x == 'train' else val_anno_file )
-  ex_db.anno_df['new_anno_file'] = ex_db.anno_df['tv'].map(lambda x: trn_anno_file if x == 'train' else val_anno_file )
-  pdb.set_trace()
-  # file이름으로 하는게 맞나? json으로 하는게 맞나?
   def new_full_path(df):
     _tv = df['tv']
     _new_name = df['new_file_name']
+    #_new_name = df['new_file_name_only']
     if _tv:
       return tp_image_trn / _new_name
     else:
@@ -265,94 +263,70 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
                                }
   new_trn_anno_json['categories'] = common_cat
   new_val_anno_json['categories'] = common_cat
+
+  pdb.set_trace()
+  pass
   ################################
   # TODO - HERE 2021.09.08
   #       devide dataframe
   #       make dict for anno_json
   #       copy img file
   ################################
-  #trn_img_df = ex_db.img_df[]
-  #new_trn_anno_json['images'] = 
+  #trn_img_df = ex_db.img_df[ex_db.img_df['tv'] == True]
+  #ex_db.img_df['new_anno_file'] = ex_db.img_df['tv'].map(lambda x: new_trn_anno_json if x == True else val_anno_file )
+  #ex_db.anno_df['new_anno_file'] = ex_db.anno_df['tv'].map(lambda x: new_trn_anno_json if x == True else val_anno_file )
+  pdb.set_trace()
+  #ex_db.img_df['new_anno_file'] = ex_db.img_df['tv'].map(lambda x: new_trn_anno_json['images'] if x == True else val_anno_file )
+  #ex_db.anno_df['new_anno_file'] = ex_db.anno_df['tv'].map(lambda x: new_trn_anno_json['annotations'] if x == True else val_anno_file )
+  pdb.set_trace()
 
-  #assert len(tv_ticket) == len(img_copy_list)
-  for tv, _img in zip(tv_ticket, img_copy_list):
-    if tv: # if train
-      _img['new_file'] = tp_image_trn / _img['new_name']
-      _img['new_anno_json'] = new_trn_anno_json
-    else: # if valid
-      _img['new_file'] = tp_image_val / _img['new_name']
-      _img['new_anno_json'] = new_val_anno_json
-    #########################
-    # 3-2) set migration info
-    #      TODO - external loop & without list pointer in _img
-    #########################
-    #for c in _img['t_mig_info_img_map']:
-    #  if c == _img['org_file']:
-    #    c = c + ' -> ' + str(_img['new_file'])
-    #    break
+  for _, im in ex_db.img_df.iterrows():
+    if im.tv:
+      _an_json = new_trn_anno_json
+      _floc = 'train/'
+    else:
+      _an_json = new_val_anno_json
+      _floc = 'valid/'
+    _an_json['images'].append({"id":im.new_id,
+                               "width":im.width,
+                               "height":im.height,
+                               "file_name":_floc + im.new_file_name,
+                               "license":im.license,
+                               "flicker_url":"",
+                               "coco_url":"",
+                               "date_captured":im.date_captured
+                               })
+  for _, an in ex_db.anno_df.iterrows():
+    if im.tv:
+      _an_json = new_trn_anno_json
+    else:
+      _an_json = new_val_anno_json
+    _an_json['annotations'].append({"id":an.id,
+                                    "image_id":an.new_image_id,
+                                    "category_id":an.common_cat_id,
+                                    "segmentation":an.segmentation,
+                                    "area":an.area,
+                                    "bbox":an.bbox,
+                                    "iscrowd":an.iscrowd,
+                                    "attributes":an.attributes
+                                    })
+  pdb.set_trace()
 
-  #########################
-  # 4) real copy file
-  #########################
+  # TODO - now real copy img
 
-  g_anno_id = 1
-  for i, _img in enumerate(img_copy_list):
-    _org_file = _img['org_file']
-    _new_file = _img['new_file']
-    _task_info_imgmap = []
-    for p_mig_info in migration_info['project_info']:
-      for t_mig_info in p_mig_info['task_info']:
-        if t_mig_info['org_task_name'] == _img['task_name']:
-          _task_info_imgmap = t_mig_info['img_map']
+  for _, im in ex_db.img_df.iterrows():
+    _org_file = im.full_path
+    _new_file = im.new_full_path
     try:
       _info_str = str(_org_file) + " -> " + str(_new_file)
-      _task_info_imgmap.append(_info_str)
       print("  cp", _info_str )
       shutil.copyfile(_org_file, _new_file)
     except:
       print("** shutil.copy sth wrong **")
       pdb.set_trace()
-    _img['new_anno_json']['images'].append({ "id": i+1,
-                                            "width": _img['img']["width"],
-                                            "height": _img['img']["height"],
-                                            #"license": _img['img']["license"],
-                                            "license": 0,
-                                            "file_name": str(_img['new_file']),
-                                            "flickr_url": _img['img']["flickr_url"],
-                                            "coco_url": _img['img']["coco_url"],
-                                            "date_captured": _img['img']["date_captured"]
-                                            })
-    for an in _img['ans']:
-      _img['new_anno_json']['annotations'].append({"id": g_anno_id,
-                                                 "image_id": i+1,
-                                                 "category_id": _img['new_cat'],
-                                                 "segmentation": an['segmentation'],
-                                                 "area": an['area'],
-                                                 "bbox": an['bbox'],
-                                                 "iscrowd": an['iscrowd'],
-                                                 "attributes": an['attributes']
-                                                 })
-      g_anno_id += 1
-
-  # TODO - dummy info fill
-  new_trn_anno_json['categories'] = common_cat
-  new_val_anno_json['categories'] = common_cat
-  new_trn_anno_json['licenses'] = [{"name":"",
-                                    "id": 0,
-                                    "url":""
-                                    }]
-  new_val_anno_json['licenses'] = new_trn_anno_json['licenses']
-  new_trn_anno_json['info'] = {"contributor":"",
-                               "date_created": datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'),
-                               "description": "",
-                               "url": "",
-                               "version": "",
-                               "year": datetime.datetime.now().strftime('%Y')
-                               }
-  new_val_anno_json['info'] = new_trn_anno_json['info']
-  print("[%s] anno json saving" % datetime.datetime.now().strftime('%H:%M:%S'))
 
   pdb.set_trace()
+
   trn_anno_file = tp_anno / "instances_train.json"
   val_anno_file = tp_anno / "instances_valid.json"
   if new_trn_anno_json['images']: # if not empty
@@ -362,45 +336,149 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=False):
     with open(val_anno_file, 'w') as f:
       json.dump(new_val_anno_json, f, sort_keys=True)
 
-  pdb.set_trace()
-  tp_info = tp / "migration_info.json"
-  with open(tp_info, 'w') as f:
-    json.dump(migration_info, f, ensure_ascii=False, sort_keys=True, indent=4)
+  ex_db.save_pkl(t_dir, "ex_db.pkl")
+  return ex_db
 
-  print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
-  #make new tsr
-  print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
-  ntsr_table = tsr.TSR(Path(t_dir))
-  print("[%s] new tsr make done" % datetime.datetime.now().strftime('%H:%M:%S'))
-  #pdb.set_trace()
-  tt_json = Path(t_dir) / "db_table.json"
-  with open(tt_json, 'w') as f:
-    json.dump(ntsr_table, f, indent=4, default=tsr.json_encoder, ensure_ascii=False, sort_keys=True)
-  return ntsr_table
 
-def update():
-  '''
-  update(s_dir, t_dir):
-    :return: ?
-    Almost same to migrate but here open the t_dir TSR table and update new data with checking file exist
-    (if exist -> pass, if not -> add)
-    !Warning! This can make duplicate case
-  '''
-  pass
 
-#def includer(elem):
-#  '''
-#  includer(elem):
-#    :return: lambda
-#    elem: the labels which be included
-#  '''
-#  return lambda x: True if x in elem else False
+
+
+
+
+
+
+
+
+
+
 #
-#def excluder(elem):
+#  #assert len(tv_ticket) == len(img_copy_list)
+#  for tv, _img in zip(tv_ticket, img_copy_list):
+#    if tv: # if train
+#      _img['new_file'] = tp_image_trn / _img['new_name']
+#      _img['new_anno_json'] = new_trn_anno_json
+#    else: # if valid
+#      _img['new_file'] = tp_image_val / _img['new_name']
+#      _img['new_anno_json'] = new_val_anno_json
+#    #########################
+#    # 3-2) set migration info
+#    #      TODO - external loop & without list pointer in _img
+#    #########################
+#    #for c in _img['t_mig_info_img_map']:
+#    #  if c == _img['org_file']:
+#    #    c = c + ' -> ' + str(_img['new_file'])
+#    #    break
+#
+#  #########################
+#  # 4) real copy file
+#  #########################
+#
+#  g_anno_id = 1
+#  for i, _img in enumerate(img_copy_list):
+#    _org_file = _img['org_file']
+#    _new_file = _img['new_file']
+#    _task_info_imgmap = []
+#    for p_mig_info in migration_info['project_info']:
+#      for t_mig_info in p_mig_info['task_info']:
+#        if t_mig_info['org_task_name'] == _img['task_name']:
+#          _task_info_imgmap = t_mig_info['img_map']
+#    try:
+#      _info_str = str(_org_file) + " -> " + str(_new_file)
+#      _task_info_imgmap.append(_info_str)
+#      print("  cp", _info_str )
+#      shutil.copyfile(_org_file, _new_file)
+#    except:
+#      print("** shutil.copy sth wrong **")
+#      pdb.set_trace()
+#    _img['new_anno_json']['images'].append({ "id": i+1,
+#                                            "width": _img['img']["width"],
+#                                            "height": _img['img']["height"],
+#                                            #"license": _img['img']["license"],
+#                                            "license": 0,
+#                                            "file_name": str(_img['new_file']),
+#                                            "flickr_url": _img['img']["flickr_url"],
+#                                            "coco_url": _img['img']["coco_url"],
+#                                            "date_captured": _img['img']["date_captured"]
+#                                            })
+#    for an in _img['ans']:
+#      _img['new_anno_json']['annotations'].append({"id": g_anno_id,
+#                                                 "image_id": i+1,
+#                                                 "category_id": _img['new_cat'],
+#                                                 "segmentation": an['segmentation'],
+#                                                 "area": an['area'],
+#                                                 "bbox": an['bbox'],
+#                                                 "iscrowd": an['iscrowd'],
+#                                                 "attributes": an['attributes']
+#                                                 })
+#      g_anno_id += 1
+#
+#  # TODO - dummy info fill
+#  new_trn_anno_json['categories'] = common_cat
+#  new_val_anno_json['categories'] = common_cat
+#  new_trn_anno_json['licenses'] = [{"name":"",
+#                                    "id": 0,
+#                                    "url":""
+#                                    }]
+#  new_val_anno_json['licenses'] = new_trn_anno_json['licenses']
+#  new_trn_anno_json['info'] = {"contributor":"",
+#                               "date_created": datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'),
+#                               "description": "",
+#                               "url": "",
+#                               "version": "",
+#                               "year": datetime.datetime.now().strftime('%Y')
+#                               }
+#  new_val_anno_json['info'] = new_trn_anno_json['info']
+#  print("[%s] anno json saving" % datetime.datetime.now().strftime('%H:%M:%S'))
+#
+#  pdb.set_trace()
+#  trn_anno_file = tp_anno / "instances_train.json"
+#  val_anno_file = tp_anno / "instances_valid.json"
+#  if new_trn_anno_json['images']: # if not empty
+#    with open(trn_anno_file, 'w') as f:
+#      json.dump(new_trn_anno_json, f, sort_keys=True)
+#  if new_val_anno_json['images']: # if not empty
+#    with open(val_anno_file, 'w') as f:
+#      json.dump(new_val_anno_json, f, sort_keys=True)
+#
+#  pdb.set_trace()
+#  tp_info = tp / "migration_info.json"
+#  with open(tp_info, 'w') as f:
+#    json.dump(migration_info, f, ensure_ascii=False, sort_keys=True, indent=4)
+#
+#  print("[%s] anno json saved" % datetime.datetime.now().strftime('%H:%M:%S'))
+#  #make new tsr
+#  print("[%s] new tsr make" % datetime.datetime.now().strftime('%H:%M:%S'))
+#  ntsr_table = tsr.TSR(Path(t_dir))
+#  print("[%s] new tsr make done" % datetime.datetime.now().strftime('%H:%M:%S'))
+#  #pdb.set_trace()
+#  tt_json = Path(t_dir) / "db_table.json"
+#  with open(tt_json, 'w') as f:
+#    json.dump(ntsr_table, f, indent=4, default=tsr.json_encoder, ensure_ascii=False, sort_keys=True)
+#  return ntsr_table
+#
+#def update():
 #  '''
-#  excluder(elem):
-#    :return: lambda
-#    elem: the labels which be excluded
+#  update(s_dir, t_dir):
+#    :return: ?
+#    Almost same to migrate but here open the t_dir TSR table and update new data with checking file exist
+#    (if exist -> pass, if not -> add)
+#    !Warning! This can make duplicate case
 #  '''
-#  return lambda x: False if x in elem else True
-
+#  pass
+#
+##def includer(elem):
+##  '''
+##  includer(elem):
+##    :return: lambda
+##    elem: the labels which be included
+##  '''
+##  return lambda x: True if x in elem else False
+##
+##def excluder(elem):
+##  '''
+##  excluder(elem):
+##    :return: lambda
+##    elem: the labels which be excluded
+##  '''
+##  return lambda x: False if x in elem else True
+#
