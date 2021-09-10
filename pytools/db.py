@@ -9,9 +9,16 @@ from pathlib import Path
 from pytools.uinputs import Input
 import pdb
 
+import datetime
+def lprint(_str):
+  _str = str(_str)
+  dt = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+  print("[%s db] " % dt + _str)
+
 class DB:
   def __init__(self, _sdir=''):
     self.sdir = _sdir
+    self.amiex = False
     self.img_df = None
     self.anno_df = None
     self.cat_df = None
@@ -20,21 +27,37 @@ class DB:
       _pkl_file = self.check_pkl_exist()
       if _pkl_file:
         #self.img_df, self.anno_df, self.cat_df = self.load_pkl(_pkl_file)
-        print("* Find pickle file -> load_pkl *")
+        lprint("* Find pickle file -> load_pkl %s *" % _pkl_file)
         self.load_pkl(_pkl_file)
+        pdb.set_trace()
+        ##################################################
+        ## TODO - HERE 1 2021.09.10
+        ## for debugging ~ end
+        ## run stat.sh for tsr's ex_db test
+        ####################################
+        # for debugging
+        self.amiex = True
+        self.clean_ex()
+        # for debugging end
+        pdb.set_trace()
       else:
         #self.img_df, self.anno_df, self.cat_df = self.read_dir()
-        print("* No pickle file exist -> read_dir *")
+        lprint("* No pickle file exist -> read_dir *")
         self.read_dir()
         self.save_pkl(_sdir, 'db.pkl')
 
   def check_pkl_exist(self):
-    #print("[%s] s_dir table file check" % datetime.datetime.now().strftime('%H:%M:%S'))
     p = Path(self.sdir)
-    pkls = list(p.glob('*.pkl'))
     #pdb.set_trace()
+    #pkls = list(p.glob('db.pkl'))
+    pkls = list(p.glob('*.pkl'))
     if len(pkls) > 1:
-      pkl_file = Input('tx',"* There are multiple pickles. Which one do you want? * \n" + str(pkls), '')
+      pkls_str = ''
+      pkls_i = 1
+      for x in pkls:
+        pkls_str += str(pkls_i) + ': ' + str(x) + '\n'
+      pkl_idx = int(Input('tx',"* There are multiple pickles. Which one do you want? * \n" + pkls_str, '[default=1]'))
+      return pkls[pkl_idx - 1]
     elif len(pkls) == 1:
       return pkls[0]
     else: #len(pkls) == 0
@@ -45,11 +68,12 @@ class DB:
     an_df = pd.DataFrame()
     ct_df = pd.DataFrame()
     p = Path(self.sdir)
-    print("* finding anno files instances_*.json *")
+    lprint("* finding anno files instances_*.json *")
     anno_flist = list(p.rglob('instances_*.json'))
+    lprint("* anno file list = %s *" % str(anno_flist))
     img_dlist = []
     for anno_file in anno_flist:
-      #print(anno_file)
+      #lprint(anno_file)
       #pdb.set_trace()
       task_dir = anno_file.parent.parent
       img_dir = task_dir / 'images'
@@ -67,7 +91,7 @@ class DB:
       #          └── ...
       #              └── *.jpg, jpeg, png, bmp
       with open(anno_file, 'r') as f:
-        print("* read anno %s *" % anno_file)
+        lprint("* read anno %s *" % anno_file)
         anno_js = json.load(f)
         _im_df = pd.DataFrame(anno_js['images'])
         _an_df = pd.DataFrame(anno_js['annotations'])
@@ -94,7 +118,7 @@ class DB:
 
   # 이게 필요한가?
   def save_pkl(self, _path, _fname):
-    print("* %s pickle saving ... *" % str(_path))
+    lprint("* %s pickle saving ... *" % str(_path))
     if not isinstance(_path, Path):
       _path = Path(_path)
     pkl_file = _path / _fname
@@ -102,7 +126,7 @@ class DB:
       if Input('yn',"* %s already have %s file. Do you want to overwrite ? *" % (str(_path), _fname), "[y/N]"):
         pass
       else:
-        print("** abort the db pkl save **")
+        lprint("** abort the db pkl save **")
         return
     with open(pkl_file,'wb') as f:
       pickle.dump(self,f)
@@ -110,11 +134,13 @@ class DB:
   def load_pkl(self, pkl_file):
     #pdb.set_trace()
     if not Path(pkl_file).exists():
-      print("** There is no named pickle %s -> aborted **"%pkl_file)
+      lprint("** There is no named pickle %s -> aborted **"%pkl_file)
       exit(0)
     with open(pkl_file, 'rb') as f:
       r_db = pickle.load(f)
     assert self.sdir == r_db.sdir
+    # TODO - distinguish db.pkl vs ex_db.pkl
+    # because of img,anno df index
     self.img_df = r_db.img_df
     self.anno_df = r_db.anno_df
     self.cat_df = r_db.cat_df
@@ -131,6 +157,38 @@ class DB:
     r_db.cat_df = self.cat_df.copy()
     r_db.anno_flist = copy.deepcopy(self.anno_flist)
     return r_db
+
+  def clean_ex(self):
+    if not self.amiex:
+      lprint("** This db is not ex_db. The rest part of function will not work -> aborted **")
+      exit(0)
+    pdb.set_trace()
+    ##############################
+    ## TODO - HERE 2 2021.09.10
+    ## db column drop & rename
+    ##############################
+    #
+    #self.img_df
+    #Index(['id', 'width', 'height', 'file_name', 'license', 'flickr_url',
+    #   'coco_url', 'date_captured', 'anno_file', 'full_path', 'new_id', 'tv',
+    #   'new_file_name', 'new_full_path'],
+    #  dtype='object')
+    #
+    #self.anno_df
+    #Index(['id', 'width', 'height', 'file_name', 'license', 'flickr_url',
+    #   'coco_url', 'date_captured', 'anno_file', 'full_path', 'new_id', 'tv',
+    #   'new_file_name', 'new_full_path'],
+    #  dtype='object')
+    #
+    #self.cat_df 
+    #Index(['id', 'name', 'supercategory', 'anno_file', 'common_cat_id'], dtype='object')
+    #
+    # self.sdir = './tsr'
+    # x = PosixPath('results/Lasvegas Taxi 2/task_2018060...
+    #
+    self.anno_flist = [ x for x in self.anno_flist if (self.sdir in str(x))]
+    self.amiex = False
+    pdb.set_trace()
 
   def extract(self, ext):
     update_im_df = pd.DataFrame()
@@ -149,7 +207,7 @@ class DB:
           for lb in ext[2:]:
             _ct_df_lb = _ct_df_an[ _ct_df_an['name'] == lb ]
             if _ct_df_lb.empty:
-              print("** there is no category %s **" % lb)
+              lprint("** there is no category %s **" % lb)
               pdb.set_trace()
               continue
             cat_id = int(_ct_df_lb['id'])
@@ -174,7 +232,7 @@ class DB:
             #pdb.set_trace()
             _ct_df_lb = _ct_df_an[ _ct_df_an['name'] == lb ]
             if _ct_df_lb.empty:
-              print("** there is no category %s **" % lb)
+              lprint("** there is no category %s **" % lb)
               pdb.set_trace()
               continue
             cat_id = int(_ct_df_lb['id'])
@@ -188,7 +246,7 @@ class DB:
           update_an_df = update_an_df.append(_an_df_an)
           update_im_df = update_im_df.append(_im_df_an)
       else:
-        print("** wrong extractor **")
+        lprint("** wrong extractor **")
         return
     self.anno_df = update_an_df
     self.img_df = update_im_df
@@ -196,6 +254,56 @@ class DB:
     return
 
   def make_json(self):
+    pass
+
+  def pdb_display(self):
+    img_df = self.img_df
+    anno_df = self.anno_df
+    cat_df = self.cat_df
+    anno_flist = self.anno_flist
+    img_df['annos'] = [pd.NA] * len(img_df)
+    img_df['cats'] = [pd.NA] * len(img_df)
+
+    cat_set = set(self.cat_df.name)
+    cat_list = list(cat_set)
+    cat_id_list = []
+    for c in cat_list:
+      cat_id_list.append(int(cat_df[cat_df['name'] == c].common_cat_id.iloc[0]))
+    #pdb.set_trace()
+    for cid, cname in zip(cat_id_list, cat_list):
+      c_an_df = anno_df[anno_df['common_cat_id']==cid]
+      lprint("cat %d, %s, #img= %d"%(cid,cname,len(set(c_an_df.new_image_id))))
+      attrs = c_an_df.iloc[0].attributes.keys()
+      for at in attrs:
+        if at in ['Color','Velocity']:
+          at_case = []
+          for _, an in c_an_df.iterrows():
+            if an.attributes[at] not in at_case:
+              at_case.append(an.attributes[at])
+          lprint("attr %s has %s cases" % (at, str(at_case)))
+          at_case.sort()
+          pdb.set_trace()
+          for att in at_case:
+            att_imgidset = set()
+            for _, an in c_an_df.iterrows():
+              if an.attributes[at] == att:
+                att_imgidset.add(an.new_image_id)
+            lprint("attr %s == %s in %s, #img= %d" % (at, att, cname, len(att_imgidset)))
+        else:
+          continue
+      pdb.set_trace()
+#    lprint("* img-anno matching *")
+#    def img_anno_match(an_df):
+#      # TODO - new_id -> id
+#      im = img_df[img_df['new_id'] == an_df['new_image_id']]
+#      if type(im['annos']) == list:
+#        im['cats'].append(an_df['common_cat_id'])
+#      else:
+#        #im['annos'] = [an_df['id?']] # there is no anno_df's new_id
+#        im['cats'] = [an_df['common_cat_id']]
+#
+#    _ = anno_df.apply(img_anno_match, axis=1)
+    pdb.set_trace()
     pass
 
 def label_extractor(t,elem):
@@ -231,7 +339,7 @@ def size_extractor(t,w,h,eq):
 class DB_viewer:
   def __init__(self, tsr_table = None):
     if tsr_table == None:
-      print("** there is no table to show -> abort **")
+      lprint("** there is no table to show -> abort **")
       exit(0)
     self.db = DB(tsr_table)
     self.tsr = tsr_table
@@ -270,7 +378,7 @@ class DB_viewer:
     print("************************************************")
     pdb.set_trace()
     #do sth print
-    print("db['cate'].__repr__()")
+    lprint("db['cate'].__repr__()")
     print(db['cate'].__repr__())
     print()
     for i in range(1,db['cate'].num +1):

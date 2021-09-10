@@ -30,9 +30,12 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   '''
   # utils #
   def lprint(_str):
+    _str = str(_str)
     dt = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     print("[%s migrate] " % dt + _str)
 
+  if s_db.amiex: # if s_db is ex_db
+    s_db.clean_ex()
   #######################
   # 
   # 0) directory check (s_dir, t_dir)
@@ -78,6 +81,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   lprint("* %s db copy to %s ex_db *"%(s_db.sdir, t_dir))
   ex_db = s_db.copy()
   ex_db.sdir = t_dir
+  ex_db.amiex = True
   for ext in extractors:
     lprint("* %s extractor %s-clude %s *" %(ext[0],ext[1], str(ext[2:])))
     ex_db.extract(ext)
@@ -296,6 +300,8 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   if new_val_anno_json['images']: # if not empty
     with open(val_anno_file, 'w') as f:
       json.dump(new_val_anno_json, f, sort_keys=True)
+  ex_db.anno_flist.append(trn_anno_file)
+  ex_db.anno_flist.append(val_anno_file)
 
   lprint("* ex_db pickel save *")
   ex_db.save_pkl(t_dir, "ex_db.pkl")
