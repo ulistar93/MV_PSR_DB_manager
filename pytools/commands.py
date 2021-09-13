@@ -35,7 +35,9 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
     print("[%s migrate] " % dt + _str)
 
   if s_db.amiex: # if s_db is ex_db
-    s_db.clean_ex()
+    pdb.set_trace()
+    lprint("** ex_db cannot be the source of migration -> make new db.pkl **")
+    s_db = db.DB(s_db.sdir)
   #######################
   # 
   # 0) directory check (s_dir, t_dir)
@@ -94,6 +96,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   lprint("* set global id of img_df *")
   total_num_img_copy = len(ex_db.img_df)
   ex_db.img_df['new_id'] = list(range(1,total_num_img_copy+1))
+  ex_db.anno_df['new_id'] = list(range(1,len(ex_db.anno_df)+1))
   #anno_df_new_img_id = pd.DataFrame()
   anno_df_new_img_id = []
   for anno_file in ex_db.anno_flist:
@@ -182,6 +185,11 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
       #new_name = re.sub('[^a-zA-Z0-9_/\-]','', _name)
       #new_name = new_name.replace('-','_').replace('/', '-') + '.' + _format
       new_name = _name + '.' + _format
+    _tv = df['tv']
+    if _tv:
+      new_name = 'train/' + new_name
+    else:
+      new_name = 'valid/' + new_name
     return new_name
   ex_db.img_df['new_file_name'] = ex_db.img_df.apply(rename_img_file_name, axis=1)
   #ex_db.img_df['new_file_name_only'] = ex_db.img_df.apply(rename_img_file_name, axis=1)
@@ -199,15 +207,17 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   tp_image_val.mkdir(parents=True, exist_ok=True)
 
   lprint("* set new_full_path *")
-  def new_full_path(df):
-    _tv = df['tv']
-    _new_name = df['new_file_name']
-    #_new_name = df['new_file_name_only']
-    if _tv:
-      return tp_image_trn / _new_name
-    else:
-      return tp_image_val / _new_name
-  ex_db.img_df['new_full_path'] = ex_db.img_df.apply(new_full_path, axis=1)
+#  def new_full_path(df):
+#    _tv = df['tv']
+#    _new_name = df['new_file_name']
+#    #_new_name = df['new_file_name_only']
+#    if _tv:
+#      return tp_image_trn / _new_name
+#    else:
+#      return tp_image_val / _new_name
+#  ex_db.img_df['new_full_path'] = ex_db.img_df.apply(new_full_path, axis=1)
+  #ex_db.img_df['new_full_path'] = ex_db.img_df['new_file_name'].map(lambda x: tp_image / x, axis=1)
+  ex_db.img_df['new_full_path'] = ex_db.img_df['new_file_name'].map(lambda x: tp_image / x)
 
   new_trn_anno_json = {'images':[],
                        'annotations':[],
@@ -251,14 +261,12 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   for _, im in ex_db.img_df.iterrows():
     if im.tv:
       _an_json = new_trn_anno_json
-      _floc = 'train/'
     else:
       _an_json = new_val_anno_json
-      _floc = 'valid/'
     _an_json['images'].append({"id":im.new_id,
                                "width":im.width,
                                "height":im.height,
-                               "file_name":_floc + im.new_file_name,
+                               "file_name":im.new_file_name,
                                "license":im.license,
                                "flicker_url":"",
                                "coco_url":"",
@@ -269,7 +277,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
       _an_json = new_trn_anno_json
     else:
       _an_json = new_val_anno_json
-    _an_json['annotations'].append({"id":an.id,
+    _an_json['annotations'].append({"id":an.new_id,
                                     "image_id":an.new_image_id,
                                     "category_id":an.common_cat_id,
                                     "segmentation":an.segmentation,
@@ -280,6 +288,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
                                     })
 
   lprint("* copy img file start *")
+  pdb.set_trace()
   for idx, im in ex_db.img_df.iterrows():
     _org_file = im.full_path
     _new_file = im.new_full_path

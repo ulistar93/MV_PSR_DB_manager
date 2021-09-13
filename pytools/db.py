@@ -25,41 +25,44 @@ class DB:
     self.anno_flist = []
     if _sdir: # if _sdir != ''
       _pkl_file = self.check_pkl_exist()
-      if _pkl_file:
+      if _pkl_file.exists():
         #self.img_df, self.anno_df, self.cat_df = self.load_pkl(_pkl_file)
         lprint("* Find pickle file -> load_pkl %s *" % _pkl_file)
         self.load_pkl(_pkl_file)
-        pdb.set_trace()
-        ##################################################
-        ## TODO - HERE 1 2021.09.10
-        ## for debugging ~ end
-        ## run stat.sh for tsr's ex_db test
-        ####################################
-        # for debugging
-        self.amiex = True
-        self.clean_ex()
-        # for debugging end
-        pdb.set_trace()
       else:
         #self.img_df, self.anno_df, self.cat_df = self.read_dir()
         lprint("* No pickle file exist -> read_dir *")
         self.read_dir()
-        self.save_pkl(_sdir, 'db.pkl')
+        self.save_pkl(_pkl_file)
 
   def check_pkl_exist(self):
     p = Path(self.sdir)
     #pdb.set_trace()
     #pkls = list(p.glob('db.pkl'))
     pkls = list(p.glob('*.pkl'))
-    if len(pkls) > 1:
+    if len(pkls) == 0:
+      lprint("* There is no pickle. create new db.pkl. *")
+      return p / 'db.pkl'
+    elif p/'db.pkl' not in pkls:
       pkls_str = ''
       pkls_i = 1
       for x in pkls:
         pkls_str += str(pkls_i) + ': ' + str(x) + '\n'
-      pkl_idx = int(Input('tx',"* There are multiple pickles. Which one do you want? * \n" + pkls_str, '[default=1]'))
+        pkls_i += 1
+      pkls.append(p/'db.pkl')
+      pkls_str += str(pkls_i) + ': (new) ' + str(pkls[-1]) + '\n'
+      pkl_idx = int(Input('tx',"* There is no default pickle (db.pkl). Which one do you want? * \n" + pkls_str, '[default=%d]' % pkls_i))
       return pkls[pkl_idx - 1]
     elif len(pkls) == 1:
       return pkls[0]
+    elif len(pkls) > 1:
+      pkls_str = ''
+      pkls_i = 1
+      for x in pkls:
+        pkls_str += str(pkls_i) + ': ' + str(x) + '\n'
+        pkls_i += 1
+      pkl_idx = int(Input('tx',"* There are multiple pickles. Which one do you want? * \n" + pkls_str, '[default=1]'))
+      return pkls[pkl_idx - 1]
     else: #len(pkls) == 0
       return ''
 
@@ -117,30 +120,27 @@ class DB:
     self.anno_flist = anno_flist
 
   # 이게 필요한가?
-  def save_pkl(self, _path, _fname):
-    lprint("* %s pickle saving ... *" % str(_path))
-    if not isinstance(_path, Path):
-      _path = Path(_path)
-    pkl_file = _path / _fname
-    if pkl_file.exists():
-      if Input('yn',"* %s already have %s file. Do you want to overwrite ? *" % (str(_path), _fname), "[y/N]"):
+  def save_pkl(self, _pkl_file):
+    lprint("* %s pickle saving ... *" % str(_pkl_file))
+    if _pkl_file.exists():
+      if Input('yn',"* %s already exist. Do you want to overwrite ? *" % str(_pkl_file), "[y/N]"):
         pass
       else:
         lprint("** abort the db pkl save **")
         return
-    with open(pkl_file,'wb') as f:
+    with open(_pkl_file,'wb') as f:
       pickle.dump(self,f)
 
   def load_pkl(self, pkl_file):
     #pdb.set_trace()
-    if not Path(pkl_file).exists():
-      lprint("** There is no named pickle %s -> aborted **"%pkl_file)
-      exit(0)
     with open(pkl_file, 'rb') as f:
       r_db = pickle.load(f)
     assert self.sdir == r_db.sdir
     # TODO - distinguish db.pkl vs ex_db.pkl
     # because of img,anno df index
+    #if r_db.amiex:
+    #  r_db.clean_ex()
+    self.amiex = r_db.amiex
     self.img_df = r_db.img_df
     self.anno_df = r_db.anno_df
     self.cat_df = r_db.cat_df
@@ -159,15 +159,7 @@ class DB:
     return r_db
 
   def clean_ex(self):
-    if not self.amiex:
-      lprint("** This db is not ex_db. The rest part of function will not work -> aborted **")
-      exit(0)
-    pdb.set_trace()
-    ##############################
-    ## TODO - HERE 2 2021.09.10
-    ## db column drop & rename
-    ##############################
-    #
+    lprint("* This db is ex_db -> clean_ex *")
     #self.img_df
     #Index(['id', 'width', 'height', 'file_name', 'license', 'flickr_url',
     #   'coco_url', 'date_captured', 'anno_file', 'full_path', 'new_id', 'tv',
@@ -175,9 +167,9 @@ class DB:
     #  dtype='object')
     #
     #self.anno_df
-    #Index(['id', 'width', 'height', 'file_name', 'license', 'flickr_url',
-    #   'coco_url', 'date_captured', 'anno_file', 'full_path', 'new_id', 'tv',
-    #   'new_file_name', 'new_full_path'],
+    #Index(['id', 'image_id', 'category_id', 'segmentation', 'area', 'bbox',
+    #   'iscrowd', 'attributes', 'anno_file', 'new_id', 'new_image_id', 'common_cat_id',
+    #   'tv'],
     #  dtype='object')
     #
     #self.cat_df 
@@ -186,7 +178,17 @@ class DB:
     # self.sdir = './tsr'
     # x = PosixPath('results/Lasvegas Taxi 2/task_2018060...
     #
-    self.anno_flist = [ x for x in self.anno_flist if (self.sdir in str(x))]
+    sp = Path(self.sdir)
+    self.anno_flist = [ x for x in self.anno_flist if sp in x.parents]
+
+    self.img_df = self.img_df.drop(['id', 'file_name', 'full_path', 'tv', 'anno_file'], axis=1)
+    self.img_df.rename({'new_id':'id', 'new_file_name':'file_name', 'new_full_path':'full_path'}, axis=1, inplace=True)
+    self.anno_df = self.anno_df.drop(['id', 'image_id', 'category_id', 'tv', 'anno_file'], axis=1)
+    self.anno_df.rename({'new_id':'id', 'new_image_id':'image_name', 'common_cat_id':'category_id'}, axis=1, inplace=True)
+    pdb.set_trace()
+    self.cat_df = self.cat_df.drop(['id', 'anno_file'], axis=1)
+    self.cat_df.rename({'common_cat_id':'id'}, axis=1, inplace=True)
+    #pdb.set_trace()
     self.amiex = False
     pdb.set_trace()
 
@@ -194,6 +196,7 @@ class DB:
     update_im_df = pd.DataFrame()
     update_an_df = pd.DataFrame()
     update_ct_df = pd.DataFrame()
+    pdb.set_trace()
     if ext[0] == 'label':
       if ext[1] == 'in':
         for anno_file in self.anno_flist:
@@ -261,6 +264,15 @@ class DB:
     anno_df = self.anno_df
     cat_df = self.cat_df
     anno_flist = self.anno_flist
+    if self.amiex:
+      anno_cid_key = 'common_cat_id'
+      anno_imid_key = 'new_image_id'
+      cat_cid_key = 'common_cat_id'
+    else:
+      anno_cid_key = 'category_id'
+      anno_imid_key = 'image_id'
+      cat_cid_key = 'id'
+
     img_df['annos'] = [pd.NA] * len(img_df)
     img_df['cats'] = [pd.NA] * len(img_df)
 
@@ -268,11 +280,14 @@ class DB:
     cat_list = list(cat_set)
     cat_id_list = []
     for c in cat_list:
-      cat_id_list.append(int(cat_df[cat_df['name'] == c].common_cat_id.iloc[0]))
+      #cat_id_list.append(int(cat_df[cat_df['name'] == c].common_cat_id.iloc[0]))
+      cat_id_list.append(int(cat_df[cat_df['name'] == c][cat_cid_key].iloc[0]))
     #pdb.set_trace()
     for cid, cname in zip(cat_id_list, cat_list):
-      c_an_df = anno_df[anno_df['common_cat_id']==cid]
-      lprint("cat %d, %s, #img= %d"%(cid,cname,len(set(c_an_df.new_image_id))))
+      #c_an_df = anno_df[anno_df['common_cat_id']==cid]
+      c_an_df = anno_df[anno_df[anno_cid_key]==cid]
+      #lprint("cat %d, %s, #img= %d"%(cid,cname,len(set(c_an_df.new_image_id))))
+      lprint("cat %d, %s, #img= %d"%(cid,cname,len(set(c_an_df[anno_imid_key]))))
       attrs = c_an_df.iloc[0].attributes.keys()
       for at in attrs:
         if at in ['Color','Velocity']:
@@ -280,14 +295,15 @@ class DB:
           for _, an in c_an_df.iterrows():
             if an.attributes[at] not in at_case:
               at_case.append(an.attributes[at])
-          lprint("attr %s has %s cases" % (at, str(at_case)))
           at_case.sort()
+          lprint("attr %s has %s cases" % (at, str(at_case)))
           pdb.set_trace()
           for att in at_case:
             att_imgidset = set()
             for _, an in c_an_df.iterrows():
               if an.attributes[at] == att:
-                att_imgidset.add(an.new_image_id)
+                #att_imgidset.add(an.new_image_id)
+                att_imgidset.add(an[anno_imid_key])
             lprint("attr %s == %s in %s, #img= %d" % (at, att, cname, len(att_imgidset)))
         else:
           continue
@@ -310,6 +326,7 @@ def label_extractor(t,elem):
   '''
   label_extractor(t,elem):
     - t: "in" or "out" type
+
     - elem: the labels which be included or excluded
     :return: lambda x
     x = category id ? - TODO

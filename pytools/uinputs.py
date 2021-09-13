@@ -35,7 +35,7 @@ def txtest(message, default_txt):
   redo_msg = ''
   default = default_txt.split('[default=')[1][:-1]
   while True:
-    ans = input(redo_msg + message + default_txt + ' :')
+    ans = input(redo_msg + message + default_txt + '\nInput: ')
     if ans != '':
       return ans
     elif default != '': # ans == ''
