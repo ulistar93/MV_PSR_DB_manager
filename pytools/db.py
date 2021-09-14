@@ -196,7 +196,6 @@ class DB:
     update_im_df = pd.DataFrame()
     update_an_df = pd.DataFrame()
     update_ct_df = pd.DataFrame()
-    pdb.set_trace()
     if ext[0] == 'label':
       if ext[1] == 'in':
         for anno_file in self.anno_flist:
@@ -251,6 +250,9 @@ class DB:
       else:
         lprint("** wrong extractor **")
         return
+    update_an_df.reset_index(inplace = True)
+    update_im_df.reset_index(inplace = True)
+    update_ct_df.reset_index(inplace = True)
     self.anno_df = update_an_df
     self.img_df = update_im_df
     self.cat_df = update_ct_df
@@ -296,8 +298,8 @@ class DB:
             if an.attributes[at] not in at_case:
               at_case.append(an.attributes[at])
           at_case.sort()
-          lprint("attr %s has %s cases" % (at, str(at_case)))
-          pdb.set_trace()
+          lprint("  attr %s has %s cases" % (at, str(at_case)))
+          #pdb.set_trace()
           for att in at_case:
             att_imgidset = set()
             for _, an in c_an_df.iterrows():
@@ -307,7 +309,7 @@ class DB:
             lprint("attr %s == %s in %s, #img= %d" % (at, att, cname, len(att_imgidset)))
         else:
           continue
-      pdb.set_trace()
+      #pdb.set_trace()
 #    lprint("* img-anno matching *")
 #    def img_anno_match(an_df):
 #      # TODO - new_id -> id
@@ -319,6 +321,7 @@ class DB:
 #        im['cats'] = [an_df['common_cat_id']]
 #
 #    _ = anno_df.apply(img_anno_match, axis=1)
+    lprint("* pdb_display End *")
     pdb.set_trace()
     pass
 

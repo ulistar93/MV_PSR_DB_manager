@@ -35,7 +35,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
     print("[%s migrate] " % dt + _str)
 
   if s_db.amiex: # if s_db is ex_db
-    pdb.set_trace()
+    #pdb.set_trace()
     lprint("** ex_db cannot be the source of migration -> make new db.pkl **")
     s_db = db.DB(s_db.sdir)
   #######################
@@ -288,7 +288,7 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
                                     })
 
   lprint("* copy img file start *")
-  pdb.set_trace()
+  #pdb.set_trace()
   for idx, im in ex_db.img_df.iterrows():
     _org_file = im.full_path
     _new_file = im.new_full_path
@@ -313,6 +313,6 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   ex_db.anno_flist.append(val_anno_file)
 
   lprint("* ex_db pickel save *")
-  ex_db.save_pkl(t_dir, "ex_db.pkl")
+  ex_db.save_pkl(tp / "ex_db.pkl")
   return ex_db
 

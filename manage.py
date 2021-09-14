@@ -90,36 +90,7 @@ if __name__ == "__main__":
     #################################################
 
     s_db = db.DB(args.sdir)
-    pdb.set_trace()
     s_db.pdb_display()
-    #pdb.set_trace()
-#    # json exist test
-#    st_json = Path(args.sdir) / "db_table.json"
-#    if st_json.exists():
-#      # ask whether renew the table json
-#      if Input('yn',"* s_dir db_table.json file already exist. Do you want to renew the db_table.json? *", "[y/N]"):
-#        #s_dir table create & save
-#        tsr_table_new = tsr.TSR(Path(args.sdir))
-#        with open(st_json, 'w') as f:
-#          pdb.set_trace()
-#          json.dump(tsr_table_new, f, indent=4, default=tsr.json_encoder, ensure_ascii=False, sort_keys=True)
-#          print("* s_dir db_table.json is renewed *")
-#      else:
-#        print("* s_dir db_table.json already exist -> read & continue *")
-#
-#    # s_dir table load
-#    with open(st_json, 'r') as f:
-#      tsr_table_json = json.load(f)
-#    tsr_table = tsr.TSR(tsr_table_json)
-#    # print tsr_table
-#    print(tsr_table)
-#    for p in tsr_table.plist:
-#      print('\t',p)
-#      for t in p.task_list:
-#        print('\t\t',t)
-#
-#    db_viewer = db.DB_viewer(tsr_table)
-#    db_viewer.interactive()
 
   else:
     args.__repr__()
