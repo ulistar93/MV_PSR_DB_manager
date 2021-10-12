@@ -119,7 +119,6 @@ class DB:
     self.cat_df = ct_df
     self.anno_flist = anno_flist
 
-  # 이게 필요한가?
   def save_pkl(self, _pkl_file):
     lprint("* %s pickle saving ... *" % str(_pkl_file))
     if _pkl_file.exists():

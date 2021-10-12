@@ -13,7 +13,7 @@ from pytools.uinputs import Input
 from pytools import tsr
 from pytools import db
 
-def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
+def migrate(s_db, t_dir, extractors=[], tv_file=None, tv_ratio=1.0, renameTF=True):
   '''
   - TODO -
   migrate(s_db, t_dir):
@@ -145,19 +145,66 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
   lprint("* train/valid devide *")
   # train/valid devide
   #total_num_img_copy = len(ex_db.img_df) #done above
-  tv_ticket = []
-  if tv_ratio == 1:
+  if tv_file != None:
+    with open(tv_file,'r') as f:
+      tv_tlist = []
+      tv_vlist = []
+      train_st = False
+      valid_st = False
+      for line in f:
+        if not train_st and not valid_st:
+          if "[train]" in line:
+            train_st = True
+          elif "[valid]" in line:
+            valid_st = True
+        elif train_st:
+          if "[valid]" in line:
+            valid_st = True
+            train_st = False
+            continue
+          elif '-' in line:
+            _s, _e = line.strip().split('-')
+            tv_tlist += [ str(i).zfill(len(_s)) for i in range(int(_s), int(_e)) ]
+          elif 'else' in line:
+            else_incl_list = tv_tlist
+          else: # just number
+            tv_tlist.append(line)
+        elif valid_st:
+          if "[train]" in line:
+            valid_st = False
+            train_st = True
+            continue
+          elif '-' in line:
+            _s, _e = line.strip().split('-')
+            tv_vlist += [ str(i).zfill(len(_s)) for i in range(int(_s), int(_e)+1) ]
+          elif 'else' in line:
+            else_incl_list = tv_vlist
+          else: # just number
+            tv_vlist.append(line)
+    #pdb.set_trace()
+    if else_incl_list == tv_tlist:
+      sel_list = tv_vlist
+      sel_tv = False
+    else:
+      sel_list = tv_tlist
+      sel_tv = True
+    #pdb.set_trace()
+    ex_db.img_df['tv'] = ex_db.img_df['file_name'].map(lambda x : sel_tv if x.split('/')[-1].split('.')[0] in sel_list else not sel_tv)
+  elif tv_ratio == 1:
     # no valid
     tv_ticket = [True] * total_num_img_copy
+    ex_db.img_df['tv'] = tv_ticket
   elif tv_ratio == 0:
     # no train
     tv_ticket = [False] * total_num_img_copy
+    ex_db.img_df['tv'] = tv_ticket
   else:
     #tv_ticket = random_ticket(total_num_img_copy, tv_ratio)
     tv_ticket_idx = list(range(total_num_img_copy)) # 0 ~ n-1
     random.shuffle(tv_ticket_idx)
     #tv_ticket = [ True for x in tv_ticket_idx if x <= (tv_ratio * (total_num_img_copy -1)) else False ]
     tv_ticket = [ True if x <= (tv_ratio * (total_num_img_copy -1)) else False for x in tv_ticket_idx ]
+    ex_db.img_df['tv'] = tv_ticket
     #  train   val
     # |<----->|<->|
     # 0       |  n-1
@@ -165,7 +212,8 @@ def migrate(s_db, t_dir, extractors=[], tv_ratio=1.0, renameTF=True):
     # so that,
     # (n-1)*r : (n-1) - (n-1)r
     # = r : 1-r
-  ex_db.img_df['tv'] = tv_ticket
+  #ex_db.img_df['tv'] = tv_ticket
+  #pdb.set_trace()
   ex_db.anno_df['tv'] = ex_db.anno_df['new_image_id'].map(lambda x : ex_db.img_df[ex_db.img_df['new_id']==x]['tv'].values[0])
 
   lprint("* set img new_file_name *")
