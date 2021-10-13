@@ -320,8 +320,9 @@ def migrate(s_db, t_dir, extractors=[], tv_file=None, tv_ratio=1.0, renameTF=Tru
                                "coco_url":"",
                                "date_captured":im.date_captured
                                })
+  pdb.set_trace()
   for _, an in ex_db.anno_df.iterrows():
-    if im.tv:
+    if an.tv:
       _an_json = new_trn_anno_json
     else:
       _an_json = new_val_anno_json
