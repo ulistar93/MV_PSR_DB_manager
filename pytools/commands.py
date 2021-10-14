@@ -164,7 +164,7 @@ def migrate(s_db, t_dir, extractors=[], tv_file=None, tv_ratio=1.0, renameTF=Tru
             continue
           elif '-' in line:
             _s, _e = line.strip().split('-')
-            tv_tlist += [ str(i).zfill(len(_s)) for i in range(int(_s), int(_e)) ]
+            tv_tlist += [ str(i).zfill(len(_s)) for i in range(int(_s), int(_e)+1) ]
           elif 'else' in line:
             else_incl_list = tv_tlist
           else: # just number
