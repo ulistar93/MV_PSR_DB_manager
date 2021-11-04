@@ -2,6 +2,7 @@
 results/
 tsr/
 tsr_ex/
+tsr_tv/
 *_old
 
 # Byte-compiled / optimized / DLL files
