@@ -4,6 +4,7 @@ tsr/
 tsr_ex/
 tsr_tv/project_0/task_0/images/train/
 tsr_tv/project_0/task_0/images/valid/
+git_token
 *_old
 
 # Byte-compiled / optimized / DLL files
