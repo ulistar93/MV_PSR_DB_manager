@@ -1,0 +1,188 @@
+{
+    "annotations": [
+        {
+            "area": 12650.049899999996,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 18
+            },
+            "bbox": [
+                1016.79,
+                155.21,
+                110.01,
+                114.99
+            ],
+            "category_id": 1,
+            "id": 1,
+            "image_id": 1,
+            "iscrowd": 0,
+            "segmentation": []
+        },
+        {
+            "area": 10052.581500000006,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 18
+            },
+            "bbox": [
+                974.49,
+                173.25,
+                98.41,
+                102.15
+            ],
+            "category_id": 1,
+            "id": 2,
+            "image_id": 2,
+            "iscrowd": 0,
+            "segmentation": []
+        },
+        {
+            "area": 73.78810000000006,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 69
+            },
+            "bbox": [
+                589.3,
+                299.06,
+                8.59,
+                8.59
+            ],
+            "category_id": 1,
+            "id": 4327,
+            "image_id": 3811,
+            "iscrowd": 0,
+            "segmentation": []
+        },
+        {
+            "area": 65.99159999999954,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 70
+            },
+            "bbox": [
+                668.15,
+                299.68,
+                8.28,
+                7.97
+            ],
+            "category_id": 1,
+            "id": 4328,
+            "image_id": 3811,
+            "iscrowd": 0,
+            "segmentation": []
+        },
+        {
+            "area": 1049.6230999999993,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 215
+            },
+            "bbox": [
+                137.63,
+                230.87,
+                32.77,
+                32.03
+            ],
+            "category_id": 1,
+            "id": 4929,
+            "image_id": 4208,
+            "iscrowd": 0,
+            "segmentation": []
+        },
+        {
+            "area": 814.6039999999991,
+            "attributes": {
+                "Color": "Red",
+                "keyframe": true,
+                "occluded": false,
+                "track_id": 216
+            },
+            "bbox": [
+                373.74,
+                258.1,
+                24.76,
+                32.9
+            ],
+            "category_id": 1,
+            "id": 4930,
+            "image_id": 4208,
+            "iscrowd": 0,
+            "segmentation": []
+        }
+    ],
+    "categories": [
+        {
+            "id": 1,
+            "name": "Stop sign - Oct",
+            "supercategory": ""
+        }
+    ],
+    "images": [
+        {
+            "coco_url": "",
+            "date_captured": 0,
+            "file_name": "valid/000001.png",
+            "flicker_url": "",
+            "height": 720,
+            "id": 1,
+            "license": 0,
+            "width": 1280
+        },
+        {
+            "coco_url": "",
+            "date_captured": 0,
+            "file_name": "valid/000002.png",
+            "flicker_url": "",
+            "height": 720,
+            "id": 2,
+            "license": 0,
+            "width": 1280
+        },
+        {
+            "coco_url": "",
+            "date_captured": 0,
+            "file_name": "valid/017201.png",
+            "flicker_url": "",
+            "height": 720,
+            "id": 3811,
+            "license": 0,
+            "width": 1280
+        },
+        {
+            "coco_url": "",
+            "date_captured": 0,
+            "file_name": "valid/019948.png",
+            "flicker_url": "",
+            "height": 720,
+            "id": 4208,
+            "license": 0,
+            "width": 1280
+        }
+    ],
+    "info": {
+        "contributor": "",
+        "date_created": "2021-10-13_09:13:23",
+        "description": "",
+        "url": "",
+        "version": "",
+        "year": "2021"
+    },
+    "licenses": [
+        {
+            "id": 0,
+            "name": "",
+            "url": ""
+        }
+    ]
+}
