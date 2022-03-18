@@ -4,19 +4,19 @@
     - Repacking the several dataset dirs into a single coco-formatting dataset
 
 ## HOW TO USE
-    - run manifest.py in each dataset dir -> made dataset_info.meta
-    - run manager.py with target dataset dirs
+* run manifest.py in each dataset dir -> made dataset_info.meta
+* run manager.py with target dataset dirs
 
 ## Process Flow
 
 ```mermaid
 graph LR
-A[DB1]-->|meta| C{filter}
-B[DB2]-->|meta| D{filter}
-C -->|meta| E{merge}
-D -->|meta| E
-E -->|real migrate| F[New DB]
+A[DB1]-->|filter| C[Anno.json]
+B[DB2]-->|filter| D[Anno.json]
+C --> E{merge}
+D --> E
+E -->|copy img & new anno| F[New DB]
 ```
 
 ## Reference
-    - cocoapi: [https://github.com/cocodataset/cocoapi](https://github.com/cocodataset/cocoapi)
+* cocoapi: [https://github.com/cocodataset/cocoapi](https://github.com/cocodataset/cocoapi)
