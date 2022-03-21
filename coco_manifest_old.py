@@ -4,6 +4,7 @@
 # and macth image file locations in real
 # This code assume that there is no two image file which has same name
 
+import os, sys
 import json
 import pandas as pd
 import numpy as np

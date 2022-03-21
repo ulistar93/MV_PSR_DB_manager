@@ -3,6 +3,10 @@
 #############
 # manage.py 
 # check arguments and run the commands #
+#
+# How to use
+# python manage.py ../smokingVSnotsmoking merge ../smokingVSnotsmoking/smo_all.json
+# python manage.py ../COCO2017 filter ../COCO2017/phone_val.json
 #############
 
 import os
@@ -16,36 +20,57 @@ import re
 import shutil
 import pdb
 
-from pytools.uinputs import Input
-from pytools import tsr
-from pytools import db
-from pytools import commands as cmds
+#from pytools.uinputs import Input
+#from pytools import tsr
+#from pytools import db
+import commands as cmds
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="TSR db manager")
-  #parser.add_argument('command', choices=['migrate', 'update', 'extract', 'stat_only'],metavar='command', type=str, help="Among \"migrate, update, extract, stat_only\", choose command what you want to do")
-  parser.add_argument('command', choices=['migrate', 'extract', 'divide','stat_only'],metavar='command', type=str, help="Among \"migrate, stat_only\", choose command what you want to do")
-  parser.add_argument('-s','--sdir', metavar='PATH', type=str, help="source directory")
-  parser.add_argument('-t','--tdir', metavar='PATH', type=str, help="target directory")
-  parser.add_argument('-i','--label_include', metavar='LABEL', type=str, nargs='+', help="including conditions for filtering. divide as space")
-  parser.add_argument('-x','--label_exclude', metavar='LABEL', type=str, nargs='+', help="excluding conditions for filtering. divide as space")
-  parser.add_argument('-r','--tv_ratio', metavar='FLOAT', type=float, default=1.0, help="train/validation ratio [0,1]; 1 = all training, 0 = all validation")
-  parser.add_argument('-f','--tv_file', metavar='PATH', type=str, help="train/validation infomation file")
-  parser.add_argument('-n','--no_rename', action='store_true', help="do not rename image files when migration (=renaming image file is default True). beware of name conflict")
 
-  #TODO
-  parser.add_argument('-g','--greater', metavar='w,h', type=str, nargs=2, help="include greater than w,h")
-  parser.add_argument('-l','--lesser', metavar='w,h', type=str, nargs=2, help="include lesser than w,h")
-  parser.add_argument('-ge','--gt_or_eq', metavar='w,h', type=str, nargs=2, help="include larger than w,h")
-  parser.add_argument('-le','--le_or_eq', metavar='w,h', type=str, nargs=2, help="include larger than w,h")
+  ####################
+  #### path check ####
+  if len(sys.argv) <= 2:
+    print("** target path is empty **")
+    t_path = input("path:")
+  else:
+    t_path = sys.argv[1]
+  p = Path(t_path)
+  print("working dir:", p.resolve())
+  if not p.is_dir():
+    print("** there is no directory %s **" % p.resolve())
+    exit(0)
+
+  ###############################
+  #### anno file list choose ####
+  annos = list(map(str,list(p.rglob('*.json'))))
+  print("## found annoataion files ##")
+  print("# please edit the list in order to include meaningful flie only #")
+  print("# ex) annos = [ x for x in annos if 'phone' in x ] #")
+  print(annos)
+  pdb.set_trace()
+
+  ###############################
+  #### commands              ####
+  cmd = ''
+  if len(sys.argv) >= 3:
+    cmd = sys.argv[2]
+  elif len(sys.argv) < 3 or cmd == '':
+    print("** commands is not decided **")
+    cmd = input("cmd:")
+
+  if cmd == "filter":
+    cmds.filter(p, annos, sys.argv[3:])
+  elif cmd == "merge":
+    cmds.merge(p, annos, sys.argv[3:])
+  else:
+    print("** there is no commands %s **" % cmd)
+    pass
+
+  print("commands done.")
+  pdb.set_trace()
+  exit(1)
 
 
-  args = parser.parse_args()
-#  print(args.accumulate(args.integers))
-
-  ###############################################
-  #### commands                              ####
-  ###############################################
   if args.command == "migrate":
     # option --sdir, tdir check
     if args.sdir == None:
@@ -151,6 +176,6 @@ if __name__ == "__main__":
 
     s_db = db.DB(args.sdir)
     s_db.pdb_display()
-
   else:
+    print("** commnads is not decided **")
     args.__repr__()
