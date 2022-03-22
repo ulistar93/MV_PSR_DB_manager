@@ -128,6 +128,7 @@ def merge(ps, annos, args):
           all_images.append({'id':img_g_idx,
                              'width':img['width'],
                              'height':img['height'],
+                             'file_name':abs_img_name,
                              'license':0,
                              'flickr_url':img['flickr_url'],
                              'coco_url':img['coco_url'],
