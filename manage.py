@@ -50,7 +50,7 @@ if __name__ == "__main__":
   print("## found annoataion files ##")
   print("# please edit the list in order to include meaningful flie only #")
   print("# ex) annos = [ x for x in annos if 'phone' in x ] #")
-  print(annos)
+  print("annos=", annos)
   pdb.set_trace()
 
   ###############################
@@ -66,6 +66,8 @@ if __name__ == "__main__":
     cmds.filter(p, annos, sys.argv[3:])
   elif cmd == "merge":
     cmds.merge(p, annos, sys.argv[3:])
+  elif cmd == "copy":
+    cmds.copy(p, annos, sys.argv[3:])
   else:
     print("** there is no commands %s **" % cmd)
     pass

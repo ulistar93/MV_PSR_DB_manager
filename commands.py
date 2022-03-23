@@ -18,6 +18,7 @@ import pdb
 #from pytools import db
 
 def filter(ps, annos, args):
+  # annos = [anno_file, ...]
   out_anno_files = []
   if isinstance(annos, str):
     annos = [annos]
@@ -50,6 +51,7 @@ def filter(ps, annos, args):
     print('load coco... %s' % anno)
     coco = COCO(anno)
 
+    # get category id for filtering
     if len(args) < 2:
       print("** there are no filtering categories **")
       for k in coco.cats.keys():
@@ -59,8 +61,6 @@ def filter(ps, annos, args):
     else:
       catIds = list(map(int, args[1:]))
 
-    #print('getCatIds...(filtering)')
-    #catIds = coco.getCatIds(catNms=['cell phone'])
     print('loadImgs...')
     imgIds = coco.getImgIds(catIds=catIds)
     new_imgs = coco.loadImgs(imgIds)
@@ -83,6 +83,27 @@ def filter(ps, annos, args):
     print('filter done')
   return
 
+def copy(ps, anno, args):
+  # check anno is a single file
+  while not isinstance(anno, str):
+    print("** filter requires a single annotation only **")
+    print("* please edit anno as a single file name *")
+    print("anno=",anno)
+    pdb.set_trace()
+  # TODO : to implement. 2022.03.23
+  if len(args) < 1:
+    pdb.set_trace()
+    #print("** merge requires a output_annotation file name as args **")
+    #print("* current dir:%s"%ps.resolve())
+    #pdb.set_trace()
+    #out_anno_file = input("out_anno_file:")
+  #else:
+    #out_anno_file = args[0]
+
+
+
+  return
+
 def merge(ps, annos, args):
   if len(annos) < 2:
     print("** merge require at least more than 2 annotation files **")
@@ -95,6 +116,7 @@ def merge(ps, annos, args):
   else:
     out_anno_file = args[0]
 
+  # TODO : merge lost licenses and info data
   all_licenses = [{'name': '', 'id': 0, 'url': ''}]
   all_info = {'contributor': '',
               'date_created': int(time.time()),
@@ -195,6 +217,7 @@ def merge(ps, annos, args):
     json.dump(new_anno_json, fo)
   print('merge done')
   return
+
 
 def migrate(s_db, t_dir, extractors=[], tv_file=None, tv_ratio=1.0, renameTF=True):
   '''
