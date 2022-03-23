@@ -6,7 +6,11 @@
 #
 # How to use
 # python manage.py ../smokingVSnotsmoking merge ../smokingVSnotsmoking/smo_all.json
-# python manage.py ../COCO2017 filter ../COCO2017/phone_val.json
+# python manage.py ../COCO2017/annotations/instances_val2017.json filter ../COCO2017/pho_val.json 77
+# python manage.py ../COCO2017 filter _cup 47
+#
+# let you know
+# filter multiple class regards as "and" not "or"
 #############
 
 import os

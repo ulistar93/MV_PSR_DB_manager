@@ -18,61 +18,69 @@ import pdb
 #from pytools import db
 
 def filter(ps, annos, args):
-  anno = ''
-  if isinstance(annos, list):
-    while anno == '':
-      if len(annos) > 1:
-        print("** filter requires a single annotation file only **")
-        print("* please select one annotaion file as \'anno\'")
-        print("* or reduce the number of annos member")
-        pdb.set_trace()
-      else:
-        anno = annos[0]
-  elif isinstance(annos, str):
-    anno = annos
-  if len(args) < 1:
-    print("** filter requires a output_annotation file name as args **")
-    print("* current dir:%s"%ps.resolve())
-    pdb.set_trace()
-    out_anno_file = input("out_anno_file:")
-  else:
-    out_anno_file = args[0]
+  out_anno_files = []
+  if isinstance(annos, str):
+    annos = [annos]
+    if len(args) < 1:
+      print("** when filter a single file, **")
+      print("** it requires a single output annotation file name **")
+      print("* current dir:%s"%ps.resolve())
+      pdb.set_trace()
+      out_anno_file = input("out_anno_file:")
+    else:
+      out_anno_file = args[0]
+    if '.json' not in out_anno_file:
+      out_anno_file += '.json'
+    out_anno_files.append(out_anno_file)
+  elif isinstance(annos, list):
+    if len(args) < 1:
+      print("** when filter multiple files, **")
+      print("** it requires a postfix tag (include _) **")
+      pdb.set_trace()
+      out_tags = '_' + input("out_tags:_")
+    else:
+      out_tags = args[0]
+      if '_' != out_tags[0]:
+        out_tags = '_' + out_tags
+    if '.json' not in out_tags:
+      out_tags += '.json'
+    out_anno_files = [ an[:-5] + out_tags for an in annos ]
 
-  print('load coco...')
-  coco = COCO(anno)
+  for n, anno in enumerate(annos):
+    print('load coco... %s' % anno)
+    coco = COCO(anno)
 
-  if len(args) < 2:
-    print("** there are no filtering categories **")
-    for k in coco.cats.keys():
-      print(coco.cats[k])
-    nums_str = input("type category numbers:")
-    catIds = list(map(int, nums_str.strip().split(' ')))
-  else:
-    catIds = list(map(int, args[1:]))
+    if len(args) < 2:
+      print("** there are no filtering categories **")
+      for k in coco.cats.keys():
+        print(coco.cats[k])
+      nums_str = input("type category numbers:")
+      catIds = list(map(int, nums_str.strip().split(' ')))
+    else:
+      catIds = list(map(int, args[1:]))
 
-  #print('getCatIds...(filtering)')
-  #catIds = coco.getCatIds(catNms=['cell phone'])
-  print('loadImgs...')
-  imgIds = coco.getImgIds(catIds=catIds)
-  new_imgs = coco.loadImgs(imgIds)
-  print('loadAnns...')
-  annIds = coco.getAnnIds(catIds=catIds)
-  new_anns = coco.loadAnns(annIds)
-
-  with open(anno, 'r') as f:
-    anno_js = json.load(f)
-    new_info = anno_js['info']
-    new_licen = anno_js['licenses']
-    new_cat = anno_js['categories']
-  new_anno_dict = {'info':new_info,
-                   'licenses':new_licen,
-                   'images':new_imgs,
-                   'annotations':new_anns,
-                   'categories':new_cat}
-  print('json.dump...')
-  with open(out_anno_file, 'w') as fo:
-    json.dump(new_anno_dict, fo)
-  print('filter done')
+    #print('getCatIds...(filtering)')
+    #catIds = coco.getCatIds(catNms=['cell phone'])
+    print('loadImgs...')
+    imgIds = coco.getImgIds(catIds=catIds)
+    new_imgs = coco.loadImgs(imgIds)
+    print('loadAnns...')
+    annIds = coco.getAnnIds(catIds=catIds)
+    new_anns = coco.loadAnns(annIds)
+    new_cat = [coco.cats[c] for c in catIds]
+    with open(anno, 'r') as f:
+      anno_js = json.load(f)
+      new_info = anno_js['info']
+      new_licen = anno_js['licenses']
+    new_anno_dict = {'info':new_info,
+                     'licenses':new_licen,
+                     'images':new_imgs,
+                     'annotations':new_anns,
+                     'categories':new_cat}
+    print('json.dump... %s'%out_anno_files[n])
+    with open(out_anno_files[n], 'w') as fo:
+      json.dump(new_anno_dict, fo)
+    print('filter done')
   return
 
 def merge(ps, annos, args):
@@ -99,13 +107,11 @@ def merge(ps, annos, args):
   all_annotations = []
 
   all_images_map = {}
-  img_name_gidx_map = {}
-  cat_name_gidx_map = {}
+  img_name_gid_map = {}
+  cat_name_gid_map = {}
   anno_g_id = 1
-  img_g_idx = 0
-  #img_g_id = img_g_idx + 1
-  cat_g_idx = 0
-  #cat_g_id = cat_g_idx + 1
+  img_g_id =  1
+  cat_g_id = 0
   for anno in annos:
     print("... read annos %s read "% anno)
     imgId_absimg_map_an = {}
@@ -115,7 +121,7 @@ def merge(ps, annos, args):
       imgdir_prefix = ''
       for img in anno_js['images']:
         abs_img_name = imgdir_prefix + img['file_name']
-        if abs_img_name not in img_name_gidx_map.keys():
+        if abs_img_name not in img_name_gid_map.keys():
           while not (ps / abs_img_name).is_file():
             print("* image not found %s *" % abs_img_name)
             print("* please add prefix (ex, train2017/) to image file directory *")
@@ -123,9 +129,8 @@ def merge(ps, annos, args):
             #pdb.set_trace()
             imgdir_prefix = input("prefix:")
             abs_img_name = imgdir_prefix + img['file_name']
-          img_name_gidx_map[abs_img_name] = img_g_idx
-          img_g_idx += 1
-          all_images.append({'id':img_g_idx,
+          img_name_gid_map[abs_img_name] = img_g_id
+          all_images.append({'id':img_g_id,
                              'width':img['width'],
                              'height':img['height'],
                              'file_name':abs_img_name,
@@ -133,45 +138,49 @@ def merge(ps, annos, args):
                              'flickr_url':img['flickr_url'],
                              'coco_url':img['coco_url'],
                              'date_captured':img['date_captured']})
-          print('img',img, ' -> id:%d'%img_g_idx)
+          print('img',img, ' -> id:%d'%img_g_id)
+          img_g_id += 1
         imgId_absimg_map_an[img['id']] = abs_img_name
       for cat in anno_js['categories']:
         cat_name = cat['name']
-        if cat_name not in cat_name_gidx_map.keys():
+        if cat_name not in cat_name_gid_map.keys():
           overwirte_cat = False
           overwrite_name = ''
-          for candi_cat in list(cat_name_gidx_map.keys()):
+          for candi_cat in list(cat_name_gid_map.keys()):
             if difflib.SequenceMatcher(a=cat_name, b=candi_cat).ratio() > 0.9:
               print("** there no category %s, but %s is similar **" %(cat_name, candi_cat))
               yn = input("* Do you want to map %s to %s? [y/n]:"%(cat_name, candi_cat))
               overwirte_cat = True if yn == 'y' else False
               if overwirte_cat:
-                print("** %d: %s -> %d: %s **" %(cat['id'], cat_name, cat_name_gidx_map[candi_cat]+1, candi_cat))
+                print("** %d: %s -> %d: %s **" %(cat['id'], cat_name, cat_name_gid_map[candi_cat]+1, candi_cat))
                 overwrite_name = candi_cat
                 break
           if overwirte_cat:
             cat_name = overwrite_name
           else:
-            cat_name_gidx_map[cat_name] = cat_g_idx
-            cat_g_idx += 1
-            all_categories.append({'id':cat_g_idx,
+            cat_name_gid_map[cat_name] = cat_g_id
+            all_categories.append({'id':cat_g_id,
                                    'name':cat_name,
                                    'supercategory':''})
-            print('cat',cat, ' -> id:%d, name:%s'%(cat_g_idx, cat_name))
+            print('cat',cat, ' -> id:%d, name:%s'%(cat_g_id, cat_name))
+            cat_g_id += 1
         catId_name_map_an[cat['id']] = cat_name
       for ann in anno_js['annotations']:
         new_ann = {'id':anno_g_id,
-                   'image_id':img_name_gidx_map[imgId_absimg_map_an[ann['image_id']]],
-                   'category_id':cat_name_gidx_map[catId_name_map_an[ann['category_id']]],
-                   'segmentation':[],
-                   'area': ann['area'],
+                   'image_id':img_name_gid_map[imgId_absimg_map_an[ann['image_id']]],
+                   'category_id':cat_name_gid_map[catId_name_map_an[ann['category_id']]],
                    'bbox': ann['bbox'],
-                   'iscrowd': ann['iscrowd'],
-                   'attributes': ann['attributes']
+                   'area': ann['area'],
                    }
+        if 'segmentation' in ann.keys():
+          new_ann['segmentation'] = ann['segmentation']
+        if 'iscrowd' in ann.keys():
+          new_ann['iscrowd'] = ann['iscrowd']
+        if 'attributes' in ann.keys():
+          new_ann['attributes'] = ann['attributes']
         print('ann',ann, ' -> id:%d, image_id:%d, category_id:%d'%(anno_g_id,
-                                                             img_name_gidx_map[imgId_absimg_map_an[ann['image_id']]],
-                                                             cat_name_gidx_map[catId_name_map_an[ann['category_id']]])
+                                                             img_name_gid_map[imgId_absimg_map_an[ann['image_id']]],
+                                                             cat_name_gid_map[catId_name_map_an[ann['category_id']]])
               )
         anno_g_id += 1
         all_annotations.append(new_ann)
