@@ -16,6 +16,24 @@ import pdb
 #from pytools.uinputs import Input
 #from pytools import tsr
 #from pytools import db
+def tv_divide(img_num, tv_ratio, tv_conut_mode, tv_count):
+  # (int, tuple(float,float), True/False, tuple(int,int))
+  random_extract_val = True
+  if tv_conut_mode:
+    while img_num != (tv_count[0] + tv_count[1]):
+      print("** train/val divide by img count, but the sum is not match **")
+      print("* please macth the below values to be img_num = sum(tv_count)*")
+      print("* img_num=%d, tv_count=(train,val)=(%d,%d) *")
+      pdb.set_trace()
+  else:
+    t_val = round(tv_ratio[0] * img_num)
+    v_val = round(tv_ratio[1] * img_num)
+    t_val += img_num - t_val - v_val
+    tv_count = (t_val, v_val)
+  tv_list = ['train'] * t_val + ['val'] * v_val
+  if random_extract_val:
+    random.shuffle(tv_list)
+  return tv_list
 
 def filter(ps, annos, args):
   # annos = [anno_file, ...]
@@ -48,8 +66,9 @@ def filter(ps, annos, args):
     out_anno_files = [ an[:-5] + out_tags for an in annos ]
 
   for n, anno in enumerate(annos):
-    print('load coco... %s' % anno)
-    coco = COCO(anno)
+    anno_file = str((ps / anno).resolve())
+    print('load coco... %s' % anno_file)
+    coco = COCO(anno_file)
 
     # get category id for filtering
     if len(args) < 2:
@@ -68,7 +87,7 @@ def filter(ps, annos, args):
     annIds = coco.getAnnIds(catIds=catIds)
     new_anns = coco.loadAnns(annIds)
     new_cat = [coco.cats[c] for c in catIds]
-    with open(anno, 'r') as f:
+    with open(anno_file, 'r') as f:
       anno_js = json.load(f)
       new_info = anno_js['info']
       new_licen = anno_js['licenses']
@@ -84,24 +103,110 @@ def filter(ps, annos, args):
   return
 
 def copy(ps, anno, args):
+  # read annotation file and copy images to output dir
   # check anno is a single file
+  anno_file = str((ps / anno).resolve())
   while not isinstance(anno, str):
-    print("** filter requires a single annotation only **")
+    print("** copy requires a single annotation only **")
     print("* please edit anno as a single file name *")
+    print("current_path=",ps)
     print("anno=",anno)
     pdb.set_trace()
-  # TODO : to implement. 2022.03.23
   if len(args) < 1:
-    pdb.set_trace()
-    #print("** merge requires a output_annotation file name as args **")
-    #print("* current dir:%s"%ps.resolve())
-    #pdb.set_trace()
-    #out_anno_file = input("out_anno_file:")
-  #else:
-    #out_anno_file = args[0]
+    print("** copy requires a output directory **")
+    print("* current dir:%s"%ps.resolve())
+    output_dir = input("output_dir:")
+  else:
+    output_dir = args[0]
 
+  out_path = Path(output_dir)
+  print("output_dir: %s" % out_path.resolve())
+  img_out_dir = out_path / 'images'
+  anno_out_dir = out_path / 'annoatations'
+  img_out_dir.mkdir(exist_ok=True, parents=True)
+  anno_out_dir.mkdir(exist_ok=True, parents=True)
 
+  tv_ratio = (1.0, 0.0)
+  tv_count_mode = False
+  tv_count = (0 ,0)
+  if len(args) >2:
+    # divide training and validation
+    t_val = args[1].split('train=')[1]
+    v_val = args[2].split('val=')[1]
+    if int(t_val)+int(v_val) == 10:
+      tv_ratio = ( int(t_val)/10, int(v_val)/10 )
+    elif int(t_val)+int(v_val) == 100:
+      tv_ratio = ( int(t_val)/100, int(v_val)/100 )
+    elif float(t_val)+float(v_val) -1 < 1e-9:
+      # t_val + v_val = 1
+      tv_ratio = ( float(t_val), float(v_val) )
+    else:
+      tv_count_mode = True
+      tv_count = (int(t_val), int(v_val))
+      tv_ratio = (int(t_val)/(int(t_val)+int(v_val)), int(v_val)/(int(t_val)+int(v_val)))
 
+  with open(anno_file, 'r') as f:
+    anno_js = json.load(f)
+    new_img_list = {'train':[],
+                     'val':[]
+                     }
+    img_id_tv_map = {}
+    new_anno_list = {'train':[],
+                     'val':[]
+                     }
+
+    # decide train/val
+    tv_list = tv_divide(len(anno_js['images']), tv_ratio, tv_count_mode, tv_count)
+    # returnd ['train', 'val', 'train', ... ]
+    if 'train' in tv_list:
+      (img_out_dir / 'train').mkdir(exist_ok=True, parents=True)
+    if 'val' in tv_list:
+      (img_out_dir / 'val').mkdir(exist_ok=True, parents=True)
+
+    img_finding_prefix = ''
+    for i, img in enumerate(anno_js['images']):
+      found_img_name = img_finding_prefix + img['file_name']
+      while not (ps / found_img_name).is_file():
+        print("* image not found %s *" % found_img_name)
+        print("* please add prefix (ex, train2017/) to image file directory *")
+        print("* current_path: %s *" % ps.resolve())
+        #pdb.set_trace()
+        imgdir_prefix = input("prefix:")
+        found_img_name = img_finding_prefix + img['file_name']
+
+      img_name = img['file_name'].split('/')[-1]
+      new_img_path = img_out_dir / tv_list[i] / img_name
+      print(" copy %s -> %s"%(str(ps/found_img_name), str(new_img_path)))
+      shutil.copyfile(ps/found_img_name, str(new_img_path))
+
+      img['file_name'] = tv_list[i] + '/' + img_name
+      new_img_list[tv_list[i]].append(img)
+      img_id_tv_map[img['id']] = tv_list[i]
+    for i, an in enumerate(anno_js['annotations']):
+      tv = img_id_tv_map[an['image_id']]
+      new_anno_list[tv].append(an)
+    new_train_anno_json = {'licenses' : anno_js['licenses'],
+                           'info' : anno_js['info'],
+                           'categories' : anno_js['categories'],
+                           'images' : new_img_list['train'],
+                           'annotations' : new_anno_list['train']
+                           }
+    out_train_anno_file = anno_out_dir / "instances_train.json"
+    print('json.dump... %s' % str(out_train_anno_file))
+    with open(out_train_anno_file, 'w') as fo:
+      json.dump(new_train_anno_json, fo)
+
+    new_valid_anno_json = {'licenses' : anno_js['licenses'],
+                           'info' : anno_js['info'],
+                           'categories' : anno_js['categories'],
+                           'images' : new_img_list['val'],
+                           'annotations' : new_anno_list['val']
+                           }
+    out_valid_anno_file = anno_out_dir / "instances_val.json"
+    print('json.dump... %s' % str(out_valid_anno_file))
+    with open(out_valid_anno_file, 'w') as fo:
+      json.dump(new_valid_anno_json, fo)
+    print('copy done')
   return
 
 def merge(ps, annos, args):
@@ -135,10 +240,11 @@ def merge(ps, annos, args):
   img_g_id =  1
   cat_g_id = 0
   for anno in annos:
-    print("... read annos %s read "% anno)
+    anno_file = str((ps / anno).resolve())
+    print("... read annos %s read "% anno_file)
     imgId_absimg_map_an = {}
     catId_name_map_an = {}
-    with open(anno, 'r') as f:
+    with open(anno_file, 'r') as f:
       anno_js = json.load(f)
       imgdir_prefix = ''
       for img in anno_js['images']:
