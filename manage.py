@@ -49,6 +49,15 @@ if __name__ == "__main__":
     exit(0)
 
   ###############################
+  #### commands              ####
+  cmd = ''
+  if len(sys.argv) >= 3:
+    cmd = sys.argv[2]
+  elif len(sys.argv) < 3 or cmd == '':
+    print("** commands is not decided **")
+    cmd = input("cmd:")
+
+  ###############################
   #### anno file list choose ####
   if ps.is_dir():
     annos = list(map(str,list(ps.rglob('*.json'))))
@@ -65,14 +74,7 @@ if __name__ == "__main__":
     exit(0)
 
   ###############################
-  #### commands              ####
-  cmd = ''
-  if len(sys.argv) >= 3:
-    cmd = sys.argv[2]
-  elif len(sys.argv) < 3 or cmd == '':
-    print("** commands is not decided **")
-    cmd = input("cmd:")
-
+  #### execution             ####
   if cmd == "filter":
     cmds.filter(ps, annos, sys.argv[3:])
   elif cmd == "merge":

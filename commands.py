@@ -165,19 +165,19 @@ def copy(ps, anno, args):
 
     img_finding_prefix = ''
     for i, img in enumerate(anno_js['images']):
-      found_img_name = img_finding_prefix + img['file_name']
-      while not (ps / found_img_name).is_file():
+      found_img_name = (ps / img_finding_prefix / img['file_name']).resolve()
+      while not found_img_name.is_file():
         print("* image not found %s *" % found_img_name)
         print("* please add prefix (ex, train2017/) to image file directory *")
         print("* current_path: %s *" % ps.resolve())
         #pdb.set_trace()
-        imgdir_prefix = input("prefix:")
-        found_img_name = img_finding_prefix + img['file_name']
+        img_finding_prefix = input("prefix:")
+        found_img_name = (ps / img_finding_prefix / img['file_name']).resolve()
 
       img_name = img['file_name'].split('/')[-1]
       new_img_path = img_out_dir / tv_list[i] / img_name
-      print(" copy %s -> %s"%(str(ps/found_img_name), str(new_img_path)))
-      shutil.copyfile(ps/found_img_name, str(new_img_path))
+      print(" copy %s -> %s"%(str(found_img_name), str(new_img_path)))
+      shutil.copyfile(found_img_name, str(new_img_path))
 
       img['file_name'] = tv_list[i] + '/' + img_name
       new_img_list[tv_list[i]].append(img)
