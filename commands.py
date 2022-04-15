@@ -238,37 +238,41 @@ def merge(ps, annos, args):
   cat_name_gid_map = {}
   anno_g_id = 1
   img_g_id =  1
-  cat_g_id = 0
+  cat_g_id = 1
   for anno in annos:
     anno_file = str((ps / anno).resolve())
     print("... read annos %s read "% anno_file)
-    imgId_absimg_map_an = {}
+    imgId_psimg_map_an = {}
     catId_name_map_an = {}
     with open(anno_file, 'r') as f:
       anno_js = json.load(f)
       imgdir_prefix = ''
       for img in anno_js['images']:
-        abs_img_name = imgdir_prefix + img['file_name']
-        if abs_img_name not in img_name_gid_map.keys():
-          while not (ps / abs_img_name).is_file():
-            print("* image not found %s *" % abs_img_name)
-            print("* please add prefix (ex, train2017/) to image file directory *")
-            print("* current_path: %s *" % ps.resolve())
-            #pdb.set_trace()
-            imgdir_prefix = input("prefix:")
-            abs_img_name = imgdir_prefix + img['file_name']
-          img_name_gid_map[abs_img_name] = img_g_id
+        abs_img_path = (ps / imgdir_prefix / img['file_name']).resolve()
+        abs_img_name = str(abs_img_path)
+        ps_img_name = abs_img_name.split(str(ps.resolve()))[1][1:]
+        while not abs_img_path.is_file():
+          print("* image not found %s *" % abs_img_name)
+          print("* please add prefix (ex, train2017/) to image file directory *")
+          print("* current_path: %s *" % ps.resolve())
+          #pdb.set_trace()
+          imgdir_prefix = input("prefix:")
+          abs_img_path = (ps / imgdir_prefix / img['file_name']).resolve()
+          abs_img_name = str(abs_img_path)
+          ps_img_name = abs_img_name.split(str(ps.resolve()))[1][1:]
+        if ps_img_name not in img_name_gid_map.keys():
+          img_name_gid_map[ps_img_name] = img_g_id
           all_images.append({'id':img_g_id,
                              'width':img['width'],
                              'height':img['height'],
-                             'file_name':abs_img_name,
+                             'file_name':ps_img_name,
                              'license':0,
                              'flickr_url':img['flickr_url'],
                              'coco_url':img['coco_url'],
                              'date_captured':img['date_captured']})
           print('img',img, ' -> id:%d'%img_g_id)
           img_g_id += 1
-        imgId_absimg_map_an[img['id']] = abs_img_name
+        imgId_psimg_map_an[img['id']] = ps_img_name
       for cat in anno_js['categories']:
         cat_name = cat['name']
         if cat_name not in cat_name_gid_map.keys():
@@ -295,7 +299,7 @@ def merge(ps, annos, args):
         catId_name_map_an[cat['id']] = cat_name
       for ann in anno_js['annotations']:
         new_ann = {'id':anno_g_id,
-                   'image_id':img_name_gid_map[imgId_absimg_map_an[ann['image_id']]],
+                   'image_id':img_name_gid_map[imgId_psimg_map_an[ann['image_id']]],
                    'category_id':cat_name_gid_map[catId_name_map_an[ann['category_id']]],
                    'bbox': ann['bbox'],
                    'area': ann['area'],
@@ -307,7 +311,7 @@ def merge(ps, annos, args):
         if 'attributes' in ann.keys():
           new_ann['attributes'] = ann['attributes']
         print('ann',ann, ' -> id:%d, image_id:%d, category_id:%d'%(anno_g_id,
-                                                             img_name_gid_map[imgId_absimg_map_an[ann['image_id']]],
+                                                             img_name_gid_map[imgId_psimg_map_an[ann['image_id']]],
                                                              cat_name_gid_map[catId_name_map_an[ann['category_id']]])
               )
         anno_g_id += 1
