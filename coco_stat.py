@@ -9,6 +9,7 @@
 
 import sys, os
 from pycocotools.coco import COCO
+import pdb
 
 if len(sys.argv) < 2:
   print("py require anno_file name")
@@ -39,3 +40,17 @@ for cid in catIds:
   cname = coco.loadCats(cid)[0]['name']
   print("  %d:%s = %d" % (cid, cname, img_cnt[cid]))
 print("all imgs = %d" % len(coco.getImgIds()))
+
+train_img_cnt = 0
+val_img_cnt = 0
+for im_k in coco.imgs.keys():
+  fname = coco.imgs[im_k]['file_name']
+  if '/' in fname:
+    train_img_cnt += 1 if 'train' in fname.split('/')[0] else 0
+    val_img_cnt += 1 if 'val' in fname.split('/')[0] else 0
+
+if train_img_cnt != 0 or val_img_cnt != 0:
+  print("\n** print img train/val ratio **")
+  print("  %d:%d = %.2f:%.2f" % (train_img_cnt, val_img_cnt,
+                                 train_img_cnt/(train_img_cnt+val_img_cnt),
+                                 val_img_cnt/(train_img_cnt+val_img_cnt)))
