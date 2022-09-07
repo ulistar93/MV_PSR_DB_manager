@@ -408,6 +408,7 @@ class CocoDataset():
             bbox_dict = {}
             #pdb.set_trace()
             bbox_dict["class"] = self.categories[segm['category_id']]['name']
+            bbox_dict["class_id"] = segm['category_id']]
             bbox_dict["xmin"] = bbox[0]
             bbox_dict["ymin"] = bbox[1]
             bbox_dict["width"] = bbox[2]
@@ -434,10 +435,7 @@ class CocoDataset():
 
         # For each bounding box
         for b in info_dict["bboxes"]:
-            try:
-                class_id = class_name_to_id_mapping[b["class"]]
-            except KeyError:
-                print("Invalid Class. Must be one from ", class_name_to_id_mapping.keys())
+            class_id = b["class_id"]
 
             # Transform the bbox co-ordinates as per the format required by YOLO v5
             # b_center_x = (b["xmin"] + b["xmax"]) / 2 
@@ -527,15 +525,13 @@ def gif_filter_main():
 
     coco_dataset.save_json_dict(annotation_path, annotation_fileName)
 
-def coco2yolo_main():
-    annotation_path = '../datasets/COCO2017_PHONE/annotations/'
-    #annotation_fileName = "instances_train.json"
-    annotation_fileName = "instances_val.json"
-    #image_dir = '../datasets/COCO2017_PHONE/images/train'
-    image_dir = '../datasets/COCO2017_PHONE/images/val'
-    data_type = "training"
+def coco2yolo_main(anno_path = '../datasets/COCO2017_PHONE/annotations',
+                   anno_file = 'instances_val.json',
+                   img_dir = '../datasets/COCO2017_PHONE/images/val'
+                   ):
+    #data_type = "training"
 
-    coco_dataset = CocoDataset(annotation_path + annotation_fileName, image_dir)
+    coco_dataset = CocoDataset(anno_file, img_dir)
 
     coco_dataset.display_info()
     coco_dataset.display_licenses()
@@ -543,9 +539,8 @@ def coco2yolo_main():
     #coco_dataset.printSelfDict()
 
     for image_id in list(coco_dataset.images.keys()):
-
         info_dict = coco_dataset.extract_COCO_to_info_dict(image_id)
-        coco_dataset.convert_to_yolov5(info_dict, annotation_path)
+        coco_dataset.convert_to_yolov5(info_dict, img_dir)
 
     html_ = coco_dataset.display_image(1, use_url=False, show_polys=False, show_bbox = True, show_crowds = False)
 
@@ -563,9 +558,10 @@ def gif_filter_only_delete_file():
                 os.remove(file)
                 print("removed the file {}", file)
 
-
 if __name__ == '__main__':
-    coco2yolo_main()
+    if len(sys.argv) <=3:
+        print("[usage] COCO2YOLO.py [annotation path] [annotation json file] [image dir]")
+    coco2yolo_main(sys.argv[1], sys.argv[2], sys.argv[3])
     #displayCOCOimage()
     # gif_filter_main()
     # gif_filter_only_delete_file()
