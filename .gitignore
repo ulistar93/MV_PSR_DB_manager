@@ -1,4 +1,4 @@
-*
+*/
 !.gitignore
 !manage.py
-!utils
+!utils/
