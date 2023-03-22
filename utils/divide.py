@@ -98,14 +98,14 @@ def divide_main(opt):
   val_images = val_dir / "images"
   val_labels = val_dir / "labels"
   try:
-    train_dir.mkdir(exist_ok=False)
+    train_dir.mkdir(parents=True, exist_ok=False)
     train_images.mkdir(exist_ok=False)
     train_labels.mkdir(exist_ok=False)
   except:
     print("  * --train_dir already exist, overwriting is forbidden * -> abort")
     exit()
   try:
-    val_dir.mkdir(exist_ok=False)
+    val_dir.mkdir(parents=True, exist_ok=False)
     val_images.mkdir(exist_ok=False)
     val_labels.mkdir(exist_ok=False)
   except:
